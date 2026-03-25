@@ -2,7 +2,7 @@
 // pages/account.js — My Account page (async Firestore)
 // ============================================================
 
-import { Users, Reviews, Session } from '../store.js';
+import { Users, Reviews, Playlists, Session } from '../store.js';
 import { compressAvatar, starsHtml, avatarHtml, timeAgo, formatDate, escapeHtml, showToast, showLoader } from '../utils.js';
 import { navigate } from '../router.js';
 import { changePassword, deleteCurrentUser } from '../auth.js';
@@ -19,9 +19,10 @@ export async function renderAccountPage(userId, isOwn = false) {
   const container = document.getElementById('page-root');
   showLoader(container);
 
-  const [user, reviews] = await Promise.all([
+  const [user, reviews, playlists] = await Promise.all([
     Users.byId(userId),
     Reviews.byUser(userId),
+    Playlists.byUser(userId)
   ]);
 
   if (!user) {
@@ -82,27 +83,45 @@ export async function renderAccountPage(userId, isOwn = false) {
                 <div class="manhwa-thumb" data-review-id="${r.id}" title="${escapeHtml(r.title)}">
                   ${r.coverBase64 ? `<img src="${r.coverBase64}" alt="${escapeHtml(r.title)}">` : `<div class="manhwa-thumb-placeholder">📖</div>`}
                 </div>`).join('')}
-            </div>`}
+             </div>
+             <button class="btn btn-secondary" id="library-btn" style="width:100%;margin-top:16px">Дивитися всі манхви</button>`}
       </div>
 
-      <!-- All reviews list -->
-      ${reviews.length > 0 ? `
-        <div>
-          <div class="section-title">🗒️ Всі рецензії</div>
-          <div>${reviews.slice(0, 5).map(r => renderReviewCard(r)).join('')}</div>
-          ${reviews.length > 5 ? `<div style="text-align:center;margin-top:16px"><span class="see-all-link" id="see-all-btn2">Показати всі ${reviews.length} →</span></div>` : ''}
-        </div>` : ''}
+      <!-- Playlists -->
+      <div style="margin-bottom:32px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div class="section-title" style="margin:0">📂 Мої плейлісти</div>
+          ${isOwn ? `<button class="btn btn-primary btn-sm" id="create-playlist-btn">➕ Створити</button>` : ''}
+        </div>
+        ${playlists.length === 0
+          ? `<div class="empty-state"><div class="empty-icon">📁</div><h3>Ще немає плейлістів</h3></div>`
+          : `<div class="manhwa-grid">
+              ${playlists.map(p => `
+                <div class="playlist-card" data-playlist-id="${p.id}" style="background:var(--bg-surface);padding:16px;border-radius:var(--radius-md);border:1px solid var(--border);cursor:pointer;text-align:center;display:flex;flex-direction:column;justify-content:center;min-height:120px;transition:0.2s">
+                  <div style="font-size:2rem;margin-bottom:8px">📑</div>
+                  <div style="font-weight:600;font-size:0.9rem;line-height:1.2;margin-bottom:4px">${escapeHtml(p.name)}</div>
+                  <div style="font-size:0.75rem;color:var(--text-muted)">${p.reviewIds.length} манхв</div>
+                </div>`).join('')}
+             </div>`}
+      </div>
     </div>
     <div id="edit-modal-placeholder"></div>
-    <div id="top4-modal-placeholder"></div>`;
+    <div id="top4-modal-placeholder"></div>
+    <div id="playlist-modal-placeholder"></div>`;
 
   // Wire events
   container.querySelectorAll('[data-review-id]').forEach(el => {
     el.addEventListener('click', () => navigate(`review/${el.dataset.reviewId}`));
   });
-  document.getElementById('see-all-btn')?.addEventListener('click', () => navigate(`all-reviews/${userId}`));
-  document.getElementById('see-all-btn2')?.addEventListener('click', () => navigate(`all-reviews/${userId}`));
+  document.getElementById('library-btn')?.addEventListener('click', () => navigate(`all-reviews/${userId}`));
   document.getElementById('add-first-review')?.addEventListener('click', () => navigate('new-review'));
+
+  container.querySelectorAll('[data-playlist-id]').forEach(el => {
+    el.addEventListener('click', () => {
+      const p = playlists.find(x => x.id === el.dataset.playlistId);
+      if (p) showPlaylistViewModal(p, reviews, userId, isOwn);
+    });
+  });
 
   if (isOwn) {
     // Avatar upload
@@ -137,6 +156,120 @@ export async function renderAccountPage(userId, isOwn = false) {
         await Users.save({ ...freshUser, top4: t4 });
         await renderAccountPage(userId, isOwn);
       });
+    });
+
+    document.getElementById('create-playlist-btn')?.addEventListener('click', () => showPlaylistCreateModal(userId, reviews));
+  }
+}
+
+function showPlaylistCreateModal(userId, reviews) {
+  const holder = document.getElementById('playlist-modal-placeholder');
+  holder.innerHTML = `
+    <div class="modal-backdrop" id="playlist-create-modal">
+      <div class="modal-box modal-box-lg">
+        <div class="modal-header">
+          <span class="modal-title">📑 Новий плейліст</span>
+          <button class="modal-close" id="pc-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-body-scroll">
+            <div class="form-group" style="margin-bottom:16px">
+              <label class="form-label">Назва плейлісту <span style="color:var(--accent)">*</span></label>
+              <input class="input" type="text" id="pc-name" placeholder="Мої улюблені...">
+            </div>
+            <div class="form-group" style="margin-bottom:16px">
+              <label class="form-label">Виберіть манхви</label>
+              <div style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;padding:8px" class="modal-body-scroll">
+                ${reviews.length === 0 ? '<div style="color:var(--text-muted)">Немає рецензій для вибору</div>' :
+                  reviews.map(r => `
+                    <label style="display:flex;align-items:center;gap:12px;cursor:pointer;padding:8px;background:var(--bg-surface);border-radius:var(--radius-sm)">
+                      <input type="checkbox" value="${r.id}" class="pc-review-cb" style="width:18px;height:18px;cursor:pointer">
+                      ${r.coverBase64 ? `<img src="${r.coverBase64}" style="width:36px;height:48px;object-fit:cover;border-radius:4px">` : `<div style="width:36px;height:48px;background:var(--bg-hover);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px">📖</div>`}
+                      <div style="flex:1;font-weight:500;font-size:0.9rem">${escapeHtml(r.title)}</div>
+                    </label>
+                  `).join('')}
+              </div>
+            </div>
+            <div id="pc-error" class="form-error" style="display:none;margin-bottom:12px"></div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+              <button class="btn btn-secondary" id="pc-close2">Скасувати</button>
+              <button class="btn btn-primary" id="pc-save-btn">Створити</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  const close = () => { holder.innerHTML = ''; };
+  document.getElementById('pc-close').addEventListener('click', close);
+  document.getElementById('pc-close2').addEventListener('click', close);
+
+  const saveBtn = document.getElementById('pc-save-btn');
+  saveBtn.addEventListener('click', async () => {
+    const name = document.getElementById('pc-name').value.trim();
+    if (!name) {
+      const err = document.getElementById('pc-error');
+      err.textContent = "Назва обов'язкова"; err.style.display = 'block'; return;
+    }
+    const checked = Array.from(document.querySelectorAll('.pc-review-cb:checked')).map(cb => cb.value);
+    saveBtn.disabled = true; saveBtn.textContent = '...';
+    await Playlists.create(userId, name, checked);
+    showToast('Плейліст створено!', 'success');
+    close();
+    await renderAccountPage(userId, true);
+  });
+}
+
+function showPlaylistViewModal(playlist, reviews, userId, isOwn) {
+  const holder = document.getElementById('playlist-modal-placeholder');
+  const items = playlist.reviewIds.map(rid => reviews.find(r => r.id === rid)).filter(Boolean);
+  
+  holder.innerHTML = `
+    <div class="modal-backdrop" id="playlist-view-modal">
+      <div class="modal-box modal-box-lg">
+        <div class="modal-header">
+          <span class="modal-title">📑 ${escapeHtml(playlist.name)}</span>
+          <button class="modal-close" id="pv-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-body-scroll" style="max-height:450px;overflow-y:auto;padding-right:8px">
+            ${items.length === 0 ? '<div class="empty-state"><h3>Плейліст порожній</h3></div>' :
+              items.map(r => `
+                <div class="review-card" style="margin-bottom:10px;cursor:pointer" data-pv-review="${r.id}">
+                  <div class="review-cover" style="width:60px">
+                    ${r.coverBase64 ? `<img src="${r.coverBase64}" alt="">` : '<div class="review-cover-placeholder">📖</div>'}
+                  </div>
+                  <div class="review-body">
+                    <div class="review-title">${escapeHtml(r.title)}</div>
+                    <div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px">📚 ${r.chapters || 0} глав | Оцінка: ${r.status==='planned' ? '-' : (r.status==='dropped' ? 'Кинуто' : r.rating)}</div>
+                  </div>
+                </div>
+              `).join('')}
+          </div>
+          ${isOwn ? `
+            <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
+              <button class="btn btn-danger btn-sm" id="pv-del-btn">🗑 Видалити плейліст</button>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    </div>`;
+
+  const close = () => { holder.innerHTML = ''; };
+  document.getElementById('pv-close').addEventListener('click', close);
+  
+  holder.querySelectorAll('[data-pv-review]').forEach(el => {
+    el.addEventListener('click', () => { close(); navigate(`review/${el.dataset.pvReview}`); });
+  });
+
+  if (isOwn) {
+    document.getElementById('pv-del-btn').addEventListener('click', async () => {
+      if (!window.confirm("Дійсно видалити цей плейліст?")) return;
+      document.getElementById('pv-del-btn').disabled = true;
+      await Playlists.delete(playlist.id);
+      showToast('Плейліст видалено', 'info');
+      close();
+      await renderAccountPage(userId, isOwn);
     });
   }
 }
@@ -202,7 +335,7 @@ function showEditModal(user) {
           </div>
           <div id="edit-error" class="form-error" style="display:none;margin-bottom:10px"></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-            <button class="btn btn-primary" id="save-edit-btn" style="flex:1">💾 Зберегти</button>
+            <button class="btn btn-secondary" id="save-edit-btn" style="flex:1;transition:0.2s" disabled>💾 Зберегти</button>
             <button class="btn btn-secondary" id="edit-modal-close2">Скасувати</button>
           </div>
           <div class="divider"></div>
@@ -216,7 +349,17 @@ function showEditModal(user) {
   document.getElementById('edit-modal-close2').addEventListener('click', close);
   document.getElementById('edit-modal').addEventListener('click', e => { if (e.target.id === 'edit-modal') close(); });
 
-  document.getElementById('save-edit-btn').addEventListener('click', async () => {
+  const saveBtn = document.getElementById('save-edit-btn');
+  const enableSave = () => {
+    saveBtn.disabled = false;
+    saveBtn.classList.remove('btn-secondary');
+    saveBtn.classList.add('btn-active-green');
+  };
+
+  holder.querySelectorAll('#edit-old-password, #edit-new-password, #edit-bio').forEach(el => el.addEventListener('input', enableSave));
+  holder.querySelectorAll('#edit-theme, #edit-push').forEach(el => el.addEventListener('change', enableSave));
+
+  saveBtn.addEventListener('click', async () => {
     const bio = document.getElementById('edit-bio').value.trim();
     const email = document.getElementById('edit-email').value.trim();
     const oldPw = document.getElementById('edit-old-password').value;

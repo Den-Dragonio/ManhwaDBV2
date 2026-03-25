@@ -50,6 +50,7 @@ export async function renderReview({ id }) {
           </div>
           <div class="review-full-meta">
             <span class="status-badge ${statusClass[review.status] || ''}">${statusLabels[review.status] || ''}</span>
+            <span style="color:var(--text-muted);font-size:0.85rem">📚 ${review.chapters || 0} глав</span>
             ${review.date ? `<span style="color:var(--text-muted);font-size:0.85rem">📅 ${formatDate(review.date)}</span>` : ''}
             <span style="color:var(--text-muted);font-size:0.85rem">🕐 ${timeAgo(review.createdAt)}</span>
           </div>

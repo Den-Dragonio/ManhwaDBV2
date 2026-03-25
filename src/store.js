@@ -100,6 +100,7 @@ export const Reviews = {
       coverBase64: data.coverBase64 || '',
       text: data.text || '',
       rating: data.rating ?? 0,
+      chapters: data.chapters || 0,
       status: data.status || 'done',
       tags: data.tags || [],
       date: data.date || '',
@@ -270,4 +271,23 @@ export const TopSites = {
     try { const s = JSON.parse(localStorage.getItem('mdb_top_sites_v2')); return s?.length ? s : DEFAULT_TOP_SITES; } catch { return DEFAULT_TOP_SITES; }
   },
   save: (sites) => localStorage.setItem('mdb_top_sites_v2', JSON.stringify(sites)),
+};
+
+// ---- PLAYLISTS ----
+export const Playlists = {
+  byUser: async (userId) => {
+    const q = query(collection(db, 'playlists'), where('userId', '==', userId));
+    const snap = await getDocs(q);
+    return normalizeDocs(snap).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  },
+  create: async (userId, name, reviewIds = []) => {
+    const docRef = await addDoc(collection(db, 'playlists'), {
+      userId, name, reviewIds,
+      createdAt: new Date().toISOString(),
+    });
+    return { id: docRef.id, userId, name, reviewIds };
+  },
+  delete: async (id) => {
+    await deleteDoc(doc(db, 'playlists', id));
+  },
 };

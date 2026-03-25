@@ -20,6 +20,7 @@ export async function renderNewReview(editId = null) {
 
   let currentCover = existing?.coverBase64 || '';
   let currentRating = existing?.rating ?? 5;
+  let currentChapters = existing?.chapters || '';
   let currentStatus = existing?.status || 'done';
 
   container.innerHTML = `
@@ -50,6 +51,12 @@ export async function renderNewReview(editId = null) {
         <div class="form-group" style="margin-bottom:16px">
           <label class="form-label">Назва манхви <span style="color:var(--accent)">*</span></label>
           <input class="input" type="text" id="review-title" placeholder="Назва..." value="${escapeHtml(existing?.title || '')}">
+        </div>
+
+        <!-- Chapters -->
+        <div class="form-group" style="margin-bottom:16px">
+          <label class="form-label">Кількість глав <span style="color:var(--accent)">*</span></label>
+          <input class="input" type="number" id="review-chapters" placeholder="0" min="0" value="${currentChapters}">
         </div>
 
         <!-- Date -->
@@ -178,10 +185,11 @@ export async function renderNewReview(editId = null) {
     ratingLabel.textContent = currentRating + '/10';
   });
 
-  // Save
   const saveBtn = document.getElementById('save-review-btn');
   saveBtn.addEventListener('click', async () => {
     const title = document.getElementById('review-title').value.trim();
+    const chaptersStr = document.getElementById('review-chapters').value;
+    const chapters = parseInt(chaptersStr, 10);
     const date = document.getElementById('review-date').value;
     const tagsRaw = document.getElementById('review-tags').value;
     const text = document.getElementById('review-text').value.trim();
@@ -191,9 +199,10 @@ export async function renderNewReview(editId = null) {
     const errEl = document.getElementById('review-form-error');
 
     if (!title) { errEl.textContent = "Назва обов'язкова"; errEl.style.display = 'block'; return; }
+    if (!chaptersStr || isNaN(chapters) || chapters < 0) { errEl.textContent = "Кількість глав обов'язкова (0 або більше)"; errEl.style.display = 'block'; return; }
 
     saveBtn.disabled = true; saveBtn.textContent = 'Збереження...';
-    const data = { title, coverBase64: currentCover, text, rating, status, tags, date };
+    const data = { title, coverBase64: currentCover, text, rating, chapters, status, tags, date };
 
     try {
       let review;
