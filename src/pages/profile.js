@@ -2,7 +2,7 @@
 // pages/profile.js — Other user's public profile (async Firestore)
 // ============================================================
 
-import { Session, Friends, News } from '../store.js';
+import { Session, Friends, News, Users } from '../store.js';
 import { renderAccountPage } from './account.js';
 import { navigate } from '../router.js';
 import { showToast } from '../utils.js';
@@ -44,6 +44,8 @@ export async function renderProfile({ id }) {
 
       document.getElementById('accept-friend-profile-btn')?.addEventListener('click', async () => {
         await Friends.accept(id, currentUser.id);
+        const friendUser = await Users.byId(id);
+        await News.add('friend', currentUser.id, id, { username: currentUser.username, friendName: friendUser?.username || 'Unknown' }).catch(console.error);
         showToast('Тепер ви друзі ✅', 'success');
         await renderProfile({ id });
       });

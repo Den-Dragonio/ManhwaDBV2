@@ -130,7 +130,7 @@ function renderNewsItem(item) {
   let icon = '📢', text = '';
   if (item.type === 'joined') { icon = '🎉'; text = `${username} приєднався до ManhwaDB`; }
   else if (item.type === 'review') { icon = '📝'; text = `${username} залишив рецензію на <strong>${escapeHtml(item.extra || 'манхву')}</strong>`; }
-  else if (item.type === 'friend') { icon = '🤝'; text = `${username} додав нового друга`; }
+  else if (item.type === 'friend') { icon = '🤝'; text = `${username} та <strong>${escapeHtml(item.friendName || 'Хтось')}</strong> тепер друзі!`; }
   else { icon = '📢'; text = `${username} щось зробив`; }
   return `<div class="news-item"><span class="news-icon">${icon}</span><div><div class="news-text">${text}</div><div class="news-ts">${timeAgo(item.createdAt)}</div></div></div>`;
 }

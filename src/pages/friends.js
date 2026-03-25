@@ -146,7 +146,10 @@ export async function renderFriends() {
   // Accept / Decline
   container.querySelectorAll('[data-accept]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      await Friends.accept(btn.dataset.accept, currentUser.id);
+      const friendId = btn.dataset.accept;
+      await Friends.accept(friendId, currentUser.id);
+      const friendUser = await Users.byId(friendId);
+      await News.add('friend', currentUser.id, friendId, { username: currentUser.username, friendName: friendUser?.username || 'Unknown' }).catch(console.error);
       showToast('Запит прийнято ✅', 'success');
       await renderFriends();
     });

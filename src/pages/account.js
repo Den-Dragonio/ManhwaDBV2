@@ -175,6 +175,10 @@ function showEditModal(user) {
               <option value="light" ${localStorage.getItem('theme') === 'light' ? 'selected' : ''}>☀️ Світла тема</option>
             </select>
           </div>
+          <div class="form-group" style="margin-bottom:14px; display:flex; align-items:center; gap:10px;">
+            <input type="checkbox" id="edit-push" ${localStorage.getItem('push_enabled') === 'true' ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer">
+            <label class="form-label" for="edit-push" style="margin:0;cursor:pointer">Отримувати Push-повідомлення</label>
+          </div>
           <div class="form-group" style="margin-bottom:14px">
             <label class="form-label">Опис</label>
             <textarea class="textarea" id="edit-bio" style="min-height:80px">${escapeHtml(user.bio || '')}</textarea>
@@ -215,13 +219,15 @@ function showEditModal(user) {
     const oldPw = document.getElementById('edit-old-password').value;
     const newPw = document.getElementById('edit-new-password').value;
     const theme = document.getElementById('edit-theme').value;
+    const pushEnabled = document.getElementById('edit-push').checked;
     const errEl = document.getElementById('edit-error');
     const saveBtn = document.getElementById('save-edit-btn');
     saveBtn.disabled = true; saveBtn.textContent = 'Збереження...';
 
-    // Apply theme
+    // Apply theme & push settings
     localStorage.setItem('theme', theme);
     document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('push_enabled', pushEnabled);
 
     if (oldPw || newPw) {
       const result = await changePassword(user.id, oldPw, newPw);
