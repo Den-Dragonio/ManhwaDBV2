@@ -3126,17 +3126,14 @@ This typically indicates that your device does not have a healthy Internet conne
       </div>
       <div id="auth-error" class="form-error" style="display:none;margin-bottom:12px"></div>
       <button class="btn btn-primary" style="width:100%" id="auth-submit" data-label="Створити акаунт">Створити акаунт</button>`;const r=async()=>{const s=t.querySelector("#auth-username").value.trim(),i=t.querySelector("#auth-email").value.trim(),a=t.querySelector("#auth-password").value,l=t.querySelector("#auth-error"),u=t.querySelector("#auth-submit");ps(u,!0);const h=await ew(s,a,i);h.error?(l.textContent=h.error,l.style.display="block",ps(u,!1)):(sn.add("joined",h.user.id,null,{username:h.user.username}).catch(()=>{}),Jt(),fe(`Ласкаво просимо, ${h.user.username}! 🎉`,"success"),setTimeout(()=>window.location.reload(),500))};t.querySelector("#auth-submit").addEventListener("click",r),t.querySelectorAll("input").forEach(s=>s.addEventListener("keydown",i=>{i.key==="Enter"&&r()}))}setTimeout(()=>{var r;return(r=t.querySelector("input"))==null?void 0:r.focus()},50)}const Ss=Object.freeze(Object.defineProperty({__proto__:null,closeAuthModal:Jt,showAuthModal:Ao},Symbol.toStringTag,{value:"Module"}));function Ro(){var i,a,l;const n=Pe.currentUser(),e=document.getElementById("app");let t=document.getElementById("site-header");t&&t.remove(),t=document.createElement("header"),t.id="site-header",t.className="site-header";const s=(window.location.hash.replace("#","")||"home").split("/")[0];t.innerHTML=`
-    <div class="header-container">
-      <a href="#home" class="header-logo">ManhwaDB</a>
-      
-      <nav class="header-nav">
-        <button class="nav-link ${s==="home"||s===""?"active":""}" data-hash="home">🏠 Головна</button>
-        <button class="nav-link ${s==="faq"?"active":""}" data-hash="faq">❔ FAQ</button>
-        ${n?`<button class="nav-link ${s==="new-review"?"active":""}" data-hash="new-review">✍️ Нова рецензія</button>`:""}
-        ${n?`<button class="nav-link ${s==="friends"?"active":""}" data-hash="friends">👥 Друзі</button>`:""}
-        ${n?`<button class="nav-link ${s==="account"?"active":""}" data-hash="account">👤 Мій акаунт</button>`:""}
-      </nav>
-    </div>
+    <a href="#home" class="header-logo">ManhwaDB</a>
+    <nav class="header-nav">
+      <button class="nav-link ${s==="home"||s===""?"active":""}" data-hash="home">🏠 Головна</button>
+      <button class="nav-link ${s==="faq"?"active":""}" data-hash="faq">❔ FAQ</button>
+      ${n?`<button class="nav-link ${s==="new-review"?"active":""}" data-hash="new-review">✍️ Нова рецензія</button>`:""}
+      ${n?`<button class="nav-link ${s==="friends"?"active":""}" data-hash="friends">👥 Друзі</button>`:""}
+      ${n?`<button class="nav-link ${s==="account"?"active":""}" data-hash="account">👤 Мій акаунт</button>`:""}
+    </nav>
     <div class="header-auth">
       ${n?`<span style="color:var(--text-secondary);font-size:0.85rem;margin-right:8px">Вітаємо, <strong style="color:var(--text-primary)">${n.username}</strong></span>
            <button class="btn btn-secondary btn-sm" id="logout-btn">Вийти</button>`:`<button class="btn btn-ghost btn-sm" id="login-btn">Увійти</button>
