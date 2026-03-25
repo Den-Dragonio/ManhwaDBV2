@@ -276,9 +276,14 @@ export const TopSites = {
 // ---- PLAYLISTS ----
 export const Playlists = {
   byUser: async (userId) => {
-    const q = query(collection(db, 'playlists'), where('userId', '==', userId));
-    const snap = await getDocs(q);
-    return normalizeDocs(snap).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    try {
+      const q = query(collection(db, 'playlists'), where('userId', '==', userId));
+      const snap = await getDocs(q);
+      return normalizeDocs(snap).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    } catch (e) {
+      console.error("Playlists error (likely missing Firestore rules):", e);
+      return [];
+    }
   },
   create: async (userId, name, reviewIds = []) => {
     const docRef = await addDoc(collection(db, 'playlists'), {
