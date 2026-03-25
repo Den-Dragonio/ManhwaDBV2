@@ -3,6 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function() {
+        const t = localStorage.getItem('theme');
+        if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+      })();
+    </script>
     <meta name="description" content="ManhwaDB — ваша персональна база рецензій та рейтингів манхв. Знаходьте, читайте та оцінюйте улюблені твори." />
     <title>ManhwaDB — рейтинги та рецензії манхв</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />

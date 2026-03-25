@@ -23,8 +23,9 @@ export async function renderReview({ id }) {
   const author = await Users.byId(review.userId);
   const isOwner = currentUser && currentUser.id === review.userId;
   const isDropped = review.status === 'dropped';
-  const statusLabels = { done: '✅ Завершено', reading: '📖 Читаю', dropped: '❌ Кинув' };
-  const statusClass = { done: 'status-done', reading: 'status-reading', dropped: 'status-dropped' };
+  const isPlanned = review.status === 'planned';
+  const statusLabels = { done: '✅ Завершено', reading: '📖 Читаю', planned: '⏳ В планах', dropped: '❌ Кинув' };
+  const statusClass = { done: 'status-done', reading: 'status-reading', planned: 'status-planned', dropped: 'status-dropped' };
 
   const likes = review.likes || [];
   const dislikes = review.dislikes || [];
@@ -48,13 +49,13 @@ export async function renderReview({ id }) {
             <a href="#" data-profile="${review.userId}" style="color:var(--accent3);font-weight:600;text-decoration:none;font-size:0.9rem">${escapeHtml(author?.username || review.username || 'Невідомий')}</a>
           </div>
           <div class="review-full-meta">
-            <span class="status-badge ${statusClass[review.status]}">${statusLabels[review.status]}</span>
+            <span class="status-badge ${statusClass[review.status] || ''}">${statusLabels[review.status] || ''}</span>
             ${review.date ? `<span style="color:var(--text-muted);font-size:0.85rem">📅 ${formatDate(review.date)}</span>` : ''}
             <span style="color:var(--text-muted);font-size:0.85rem">🕐 ${timeAgo(review.createdAt)}</span>
           </div>
           <div style="margin-bottom:12px">
-            ${starsHtml(review.rating, isDropped)}
-            <span style="color:var(--text-muted);font-size:0.85rem;margin-left:8px">${isDropped ? 'Кинуто' : `${review.rating}/10`}</span>
+            ${isPlanned ? '<span style="color:var(--text-muted);font-size:0.9rem">Ще не оцінено</span>' : starsHtml(review.rating, isDropped)}
+            ${!isPlanned ? `<span style="color:var(--text-muted);font-size:0.85rem;margin-left:8px">${isDropped ? 'Кинуто' : `${review.rating}/10`}</span>` : ''}
           </div>
           ${review.tags?.length ? `<div class="review-tags">${review.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
           ${review.updatedAt ? `<span class="edited-badge">Редаговано ${timeAgo(review.updatedAt)}</span>` : ''}

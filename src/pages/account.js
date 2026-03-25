@@ -48,6 +48,7 @@ export async function renderAccountPage(userId, isOwn = false) {
             <div class="profile-stat"><div class="stat-value">${reviews.length}</div><div class="stat-label">Рецензій</div></div>
             <div class="profile-stat"><div class="stat-value">${reviews.filter(r => r.status === 'done').length}</div><div class="stat-label">Завершено</div></div>
             <div class="profile-stat"><div class="stat-value">${reviews.filter(r => r.status === 'reading').length}</div><div class="stat-label">Читаю</div></div>
+            <div class="profile-stat"><div class="stat-value">${reviews.filter(r => r.status === 'planned').length}</div><div class="stat-label">В планах</div></div>
             <div class="profile-stat"><div class="stat-value">${reviews.filter(r => r.status === 'dropped').length}</div><div class="stat-label">Кинуто</div></div>
           </div>
           ${isOwn ? `<div style="margin-top:16px"><button class="btn btn-secondary btn-sm" id="edit-account-btn">⚙️ Налаштування</button></div>` : ''}
@@ -141,7 +142,7 @@ export async function renderAccountPage(userId, isOwn = false) {
 }
 
 function renderReviewCard(r) {
-  const isDropped = r.status === 'dropped';
+  const isDropped = r.status === 'dropped' || r.status === 'planned';
   const tagsHtml = r.tags?.length ? r.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('') : '';
   return `<div class="review-card" style="margin-bottom:10px;cursor:pointer" data-review-id="${r.id}">
     <div class="review-cover">
@@ -150,7 +151,7 @@ function renderReviewCard(r) {
     <div class="review-body">
       <div class="review-date">${r.date ? formatDate(r.date) : timeAgo(r.createdAt)}</div>
       <div class="review-title">${escapeHtml(r.title)}</div>
-      <div style="margin:4px 0">${starsHtml(r.rating, isDropped)}</div>
+      <div style="margin:4px 0">${r.status === 'planned' ? '<span style="color:var(--text-muted);font-size:0.8rem">Ще не оцінено</span>' : starsHtml(r.rating, isDropped)}</div>
       ${tagsHtml ? `<div class="review-tags" style="margin:4px 0">${tagsHtml}</div>` : ''}
       ${r.text ? `<div class="review-text-preview">${escapeHtml(r.text)}</div>` : ''}
     </div>
@@ -167,6 +168,13 @@ function showEditModal(user) {
           <button class="modal-close" id="edit-modal-close">✕</button>
         </div>
         <div class="modal-body">
+          <div class="form-group" style="margin-bottom:14px">
+            <label class="form-label">Тема сайту</label>
+            <select class="select" id="edit-theme">
+              <option value="dark" ${localStorage.getItem('theme') !== 'light' ? 'selected' : ''}>🌙 Темна тема</option>
+              <option value="light" ${localStorage.getItem('theme') === 'light' ? 'selected' : ''}>☀️ Світла тема (Facebook)</option>
+            </select>
+          </div>
           <div class="form-group" style="margin-bottom:14px">
             <label class="form-label">Опис</label>
             <textarea class="textarea" id="edit-bio" style="min-height:80px">${escapeHtml(user.bio || '')}</textarea>
@@ -206,9 +214,14 @@ function showEditModal(user) {
     const email = document.getElementById('edit-email').value.trim();
     const oldPw = document.getElementById('edit-old-password').value;
     const newPw = document.getElementById('edit-new-password').value;
+    const theme = document.getElementById('edit-theme').value;
     const errEl = document.getElementById('edit-error');
     const saveBtn = document.getElementById('save-edit-btn');
     saveBtn.disabled = true; saveBtn.textContent = 'Збереження...';
+
+    // Apply theme
+    localStorage.setItem('theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
 
     if (oldPw || newPw) {
       const result = await changePassword(user.id, oldPw, newPw);

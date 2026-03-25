@@ -70,6 +70,7 @@ export async function renderNewReview(editId = null) {
           <select class="select" id="review-status">
             <option value="done" ${currentStatus === 'done' ? 'selected' : ''}>✅ Завершено</option>
             <option value="reading" ${currentStatus === 'reading' ? 'selected' : ''}>📖 Читаю</option>
+            <option value="planned" ${currentStatus === 'planned' ? 'selected' : ''}>⏳ В планах (Прочитати потім)</option>
             <option value="dropped" ${currentStatus === 'dropped' ? 'selected' : ''}>❌ Кинув</option>
           </select>
         </div>
@@ -79,10 +80,10 @@ export async function renderNewReview(editId = null) {
           <label class="form-label">Оцінка <span style="color:var(--accent)">*</span></label>
           <div class="star-slider-wrap">
             <div class="star-slider-preview">
-              <div id="stars-preview">${starsHtml(currentRating, currentStatus === 'dropped')}</div>
-              <span class="star-slider-label" id="rating-label">${currentStatus === 'dropped' ? 'Кинута' : currentRating + '/10'}</span>
+              <div id="stars-preview">${currentStatus === 'planned' ? '<span style="color:var(--text-muted);font-size:0.9rem">Ще не оцінено</span>' : starsHtml(currentRating, currentStatus === 'dropped')}</div>
+              <span class="star-slider-label" id="rating-label">${currentStatus === 'dropped' ? 'Кинута' : currentStatus === 'planned' ? '-' : currentRating + '/10'}</span>
             </div>
-            <input type="range" class="star-slider" id="rating-slider" min="0" max="10" step="0.5" value="${currentRating}" ${currentStatus === 'dropped' ? 'disabled' : ''}>
+            <input type="range" class="star-slider" id="rating-slider" min="0" max="10" step="0.5" value="${currentRating}" ${currentStatus === 'dropped' || currentStatus === 'planned' ? 'disabled' : ''}>
           </div>
         </div>
 
@@ -160,9 +161,15 @@ export async function renderNewReview(editId = null) {
   statusSel.addEventListener('change', () => {
     currentStatus = statusSel.value;
     const isDropped = currentStatus === 'dropped';
-    slider.disabled = isDropped;
-    starsPreview.innerHTML = starsHtml(isDropped ? 0 : currentRating, isDropped);
-    ratingLabel.textContent = isDropped ? 'Кинута' : currentRating + '/10';
+    const isPlanned = currentStatus === 'planned';
+    slider.disabled = isDropped || isPlanned;
+    if (isPlanned) {
+      starsPreview.innerHTML = '<span style="color:var(--text-muted);font-size:0.9rem">Ще не оцінено</span>';
+      ratingLabel.textContent = '-';
+    } else {
+      starsPreview.innerHTML = starsHtml(isDropped ? 0 : currentRating, isDropped);
+      ratingLabel.textContent = isDropped ? 'Кинута' : currentRating + '/10';
+    }
   });
 
   slider.addEventListener('input', () => {
@@ -179,7 +186,7 @@ export async function renderNewReview(editId = null) {
     const tagsRaw = document.getElementById('review-tags').value;
     const text = document.getElementById('review-text').value.trim();
     const status = statusSel.value;
-    const rating = status === 'dropped' ? 0 : currentRating;
+    const rating = (status === 'dropped' || status === 'planned') ? 0 : currentRating;
     const tags = tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
     const errEl = document.getElementById('review-form-error');
 

@@ -35,6 +35,7 @@ export async function renderAllReviews({ userId }) {
         <button class="btn btn-secondary btn-sm filter-btn active" data-filter="all">Всі</button>
         <button class="btn btn-secondary btn-sm filter-btn" data-filter="done">✅ Завершені</button>
         <button class="btn btn-secondary btn-sm filter-btn" data-filter="reading">📖 Читаю</button>
+        <button class="btn btn-secondary btn-sm filter-btn" data-filter="planned">⏳ В планах</button>
         <button class="btn btn-secondary btn-sm filter-btn" data-filter="dropped">❌ Кинуті</button>
         <input class="input" id="all-reviews-search" placeholder="🔍 Пошук..." style="max-width:220px;margin-left:auto">
       </div>
@@ -81,10 +82,10 @@ export async function renderAllReviews({ userId }) {
 
 function renderGrid(reviews) {
   if (reviews.length === 0) return `<div class="empty-state"><div class="empty-icon">📭</div><h3>Нічого не знайдено</h3></div>`;
-  const statusLabels = { done: '✅ Завершено', reading: '📖 Читаю', dropped: '❌ Кинув' };
-  const statusClass = { done: 'status-done', reading: 'status-reading', dropped: 'status-dropped' };
+  const statusLabels = { done: '✅ Завершено', reading: '📖 Читаю', planned: '⏳ В планах', dropped: '❌ Кинув' };
+  const statusClass = { done: 'status-done', reading: 'status-reading', planned: 'status-planned', dropped: 'status-dropped' };
   return reviews.map(r => {
-    const isDropped = r.status === 'dropped';
+    const isDropped = r.status === 'dropped' || r.status === 'planned';
     return `<div class="review-card" style="cursor:pointer" data-review-id="${r.id}">
       <div class="review-cover" style="width:80px">
         ${r.coverBase64 ? `<img src="${r.coverBase64}" alt="${escapeHtml(r.title)}">` : '<div class="review-cover-placeholder">📖</div>'}
@@ -92,10 +93,10 @@ function renderGrid(reviews) {
       <div class="review-body">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
           <div class="review-date">${r.date ? formatDate(r.date) : timeAgo(r.createdAt)}</div>
-          <span class="status-badge ${statusClass[r.status]}" style="font-size:0.7rem">${statusLabels[r.status]}</span>
+          <span class="status-badge ${statusClass[r.status] || ''}" style="font-size:0.7rem">${statusLabels[r.status] || ''}</span>
         </div>
         <div class="review-title">${escapeHtml(r.title)}</div>
-        <div style="margin:6px 0">${starsHtml(r.rating, isDropped)}</div>
+        <div style="margin:6px 0">${r.status === 'planned' ? '<span style="color:var(--text-muted);font-size:0.8rem">Ще не оцінено</span>' : starsHtml(r.rating, isDropped)}</div>
         ${r.tags?.length ? `<div class="review-tags">${r.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
         ${r.text ? `<div class="review-text-preview" style="margin-top:6px">${escapeHtml(r.text)} <span style="color:var(--accent)">...</span></div>` : ''}
       </div>
