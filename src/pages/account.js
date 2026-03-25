@@ -80,8 +80,11 @@ export async function renderAccountPage(userId, isOwn = false) {
           ? `<div class="empty-state"><div class="empty-icon">📖</div><h3>Ще немає рецензій</h3>${isOwn ? `<p><button class="btn btn-primary btn-sm" id="add-first-review">✍️ Написати першу</button></p>` : ''}</div>`
           : `<div class="manhwa-grid">
               ${reviews.slice(0, 6).map(r => `
-                <div class="manhwa-thumb" data-review-id="${r.id}" title="${escapeHtml(r.title)}">
-                  ${r.coverBase64 ? `<img src="${r.coverBase64}" alt="${escapeHtml(r.title)}">` : `<div class="manhwa-thumb-placeholder">📖</div>`}
+                <div class="manhwa-thumb-wrap" style="display:flex;flex-direction:column;align-items:center;cursor:pointer" data-review-id="${r.id}" title="${escapeHtml(r.title)}">
+                  <div class="manhwa-thumb">
+                    ${r.coverBase64 ? `<img src="${r.coverBase64}" alt="${escapeHtml(r.title)}">` : `<div class="manhwa-thumb-placeholder">📖</div>`}
+                  </div>
+                  <div style="font-size:0.75rem;font-weight:600;margin-top:6px;text-align:center;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;width:100%">${escapeHtml(r.title)}</div>
                 </div>`).join('')}
              </div>
              <button class="btn btn-secondary" id="library-btn" style="width:100%;margin-top:16px">Дивитися всі манхви</button>`}

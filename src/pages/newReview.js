@@ -50,7 +50,11 @@ export async function renderNewReview(editId = null) {
         <!-- Title -->
         <div class="form-group" style="margin-bottom:16px">
           <label class="form-label">Назва манхви <span style="color:var(--accent)">*</span></label>
-          <input class="input" type="text" id="review-title" placeholder="Назва..." value="${escapeHtml(existing?.title || '')}">
+          <div style="position:relative">
+            <input class="input" type="text" id="review-title" placeholder="Введіть назву (пошук в базі)..." value="${escapeHtml(existing?.title || '')}" autocomplete="off">
+            <div id="autocomplete-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-float);z-index:100;max-height:300px;overflow-y:auto;margin-top:4px">
+            </div>
+          </div>
         </div>
 
         <!-- Chapters -->
@@ -83,14 +87,13 @@ export async function renderNewReview(editId = null) {
         </div>
 
         <!-- Rating -->
-        <div class="form-group" style="margin-bottom:16px">
+        <div class="form-group" style="margin-bottom:16px;text-align:center">
           <label class="form-label">Оцінка <span style="color:var(--accent)">*</span></label>
-          <div class="star-slider-wrap">
-            <div class="star-slider-preview">
-              <div id="stars-preview">${currentStatus === 'planned' ? '<span style="color:var(--text-muted);font-size:0.9rem">Ще не оцінено</span>' : starsHtml(currentRating, currentStatus === 'dropped')}</div>
-              <span class="star-slider-label" id="rating-label">${currentStatus === 'dropped' ? 'Кинута' : currentStatus === 'planned' ? '-' : currentRating + '/10'}</span>
-            </div>
-            <input type="range" class="star-slider" id="rating-slider" min="0" max="10" step="0.5" value="${currentRating}" ${currentStatus === 'dropped' || currentStatus === 'planned' ? 'disabled' : ''}>
+          <div id="interactive-stars-wrap" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;padding:12px;background:var(--bg-surface);border-radius:12px;border:1px solid var(--border)">
+             <!-- Rendered dynamically -->
+          </div>
+          <div id="rating-label" style="font-size:1.2rem;font-weight:700;color:var(--accent2);margin-top:8px">
+            ${currentStatus === 'dropped' ? 'Кинута' : currentStatus === 'planned' ? '-' : currentRating + '/10'}
           </div>
         </div>
 
@@ -159,31 +162,139 @@ export async function renderNewReview(editId = null) {
     if (file?.type.startsWith('image/')) { currentCover = await compressImage(file, 700, 0.65); refreshCoverUI(); }
   });
 
+  // AniList API Integration
+  const titleInput = document.getElementById('review-title');
+  const resultsBox = document.getElementById('autocomplete-results');
+  let searchTimeout = null;
+
+  titleInput.addEventListener('input', () => {
+    const q = titleInput.value.trim();
+    if (q.length < 3) { resultsBox.style.display = 'none'; return; }
+    
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(async () => {
+      try {
+        resultsBox.style.display = 'block';
+        resultsBox.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted)">Шукаю в AniList...</div>';
+        const res = await fetch('https://graphql.anilist.co', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({
+            query: `query ($search: String) { Page(page: 1, perPage: 8) { media(search: $search, type: MANGA) { id title { romaji english } coverImage { extraLarge } chapters } } }`,
+            variables: { search: q }
+          })
+        });
+        const data = await res.json();
+        const media = data.data.Page.media;
+        
+        if (media.length === 0) {
+          resultsBox.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted)">Нічого не знайдено</div>';
+          return;
+        }
+
+        resultsBox.innerHTML = media.map(m => {
+          const t = m.title.english || m.title.romaji;
+          const cover = m.coverImage?.extraLarge || '';
+          return `
+            <div class="ac-item" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);transition:0.1s" data-title="${escapeHtml(t)}" data-cover="${cover}" data-chapters="${m.chapters || 0}">
+              ${cover ? `<img src="${cover}" style="width:32px;height:45px;object-fit:cover;border-radius:4px">` : `<div style="width:32px;height:45px;background:var(--bg-hover);border-radius:4px"></div>`}
+              <div style="flex:1;font-weight:500;font-size:0.9rem">${escapeHtml(t)}</div>
+              ${m.chapters ? `<div style="font-size:0.75rem;color:var(--text-muted)">${m.chapters} глав</div>` : ''}
+            </div>
+          `;
+        }).join('');
+
+        resultsBox.querySelectorAll('.ac-item').forEach(item => {
+          item.addEventListener('mouseenter', () => item.style.background = 'var(--bg-hover)');
+          item.addEventListener('mouseleave', () => item.style.background = '');
+          item.addEventListener('click', () => {
+            titleInput.value = item.dataset.title;
+            document.getElementById('review-chapters').value = item.dataset.chapters;
+            if (item.dataset.cover) {
+              currentCover = item.dataset.cover;
+              refreshCoverUI();
+              showToast('Дані завантажено з AniList!', 'info');
+            }
+            resultsBox.style.display = 'none';
+          });
+        });
+      } catch (e) {
+        resultsBox.innerHTML = '<div style="padding:12px;text-align:center;color:var(--accent)">Помилка пошуку</div>';
+      }
+    }, 600);
+  });
+
+  document.addEventListener('click', e => {
+    if (!titleInput.contains(e.target) && !resultsBox.contains(e.target)) {
+      resultsBox.style.display = 'none';
+    }
+  });
+
   // Rating/status wiring
   const statusSel = document.getElementById('review-status');
-  const slider = document.getElementById('rating-slider');
-  const starsPreview = document.getElementById('stars-preview');
+  const starsWrap = document.getElementById('interactive-stars-wrap');
   const ratingLabel = document.getElementById('rating-label');
+
+  function renderInteractiveStars(hoverVal = null) {
+    const isDropped = currentStatus === 'dropped';
+    const isPlanned = currentStatus === 'planned';
+    if (isDropped || isPlanned) {
+      starsWrap.innerHTML = '<span style="color:var(--text-muted);font-size:1rem;padding:8px">' + (isPlanned ? 'Ще не оцінено' : 'Оцінка недоступна') + '</span>';
+      starsWrap.style.pointerEvents = 'none';
+      return;
+    }
+    starsWrap.style.pointerEvents = 'auto';
+    starsWrap.innerHTML = '';
+    
+    // Ensure rating is integer to fit 10-star render
+    currentRating = Math.round(currentRating);
+    const displayVal = hoverVal !== null ? hoverVal : currentRating;
+    
+    for (let i = 1; i <= 10; i++) {
+      const char = i <= displayVal ? '★' : '☆';
+      const color = i <= displayVal ? 'var(--accent2)' : 'var(--text-muted)';
+      const star = document.createElement('span');
+      star.textContent = char;
+      star.style.fontSize = '32px';
+      star.style.lineHeight = '1';
+      star.style.color = color;
+      star.style.transition = '0.1s transform, 0.1s color';
+      
+      star.addEventListener('mouseover', () => {
+        renderInteractiveStars(i);
+        star.style.transform = 'scale(1.2)';
+      });
+      star.addEventListener('mouseleave', () => {
+         star.style.transform = 'scale(1)';
+      });
+      star.addEventListener('click', () => {
+        currentRating = i;
+        renderInteractiveStars();
+        ratingLabel.textContent = currentRating + '/10';
+      });
+      starsWrap.appendChild(star);
+    }
+  }
+
+  starsWrap.addEventListener('mouseleave', () => {
+    if (currentStatus !== 'dropped' && currentStatus !== 'planned') {
+      renderInteractiveStars();
+    }
+  });
 
   statusSel.addEventListener('change', () => {
     currentStatus = statusSel.value;
     const isDropped = currentStatus === 'dropped';
     const isPlanned = currentStatus === 'planned';
-    slider.disabled = isDropped || isPlanned;
     if (isPlanned) {
-      starsPreview.innerHTML = '<span style="color:var(--text-muted);font-size:0.9rem">Ще не оцінено</span>';
       ratingLabel.textContent = '-';
     } else {
-      starsPreview.innerHTML = starsHtml(isDropped ? 0 : currentRating, isDropped);
       ratingLabel.textContent = isDropped ? 'Кинута' : currentRating + '/10';
     }
+    renderInteractiveStars();
   });
 
-  slider.addEventListener('input', () => {
-    currentRating = parseFloat(slider.value);
-    starsPreview.innerHTML = starsHtml(currentRating, false);
-    ratingLabel.textContent = currentRating + '/10';
-  });
+  renderInteractiveStars();
 
   const saveBtn = document.getElementById('save-review-btn');
   saveBtn.addEventListener('click', async () => {

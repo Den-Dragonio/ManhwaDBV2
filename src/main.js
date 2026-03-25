@@ -12,6 +12,7 @@ import { showLoader } from './utils.js';
 
 // ---- Page imports ----
 import { renderHome } from './pages/home.js';
+import { renderFaq } from './pages/faq.js';
 import { renderNewReview } from './pages/newReview.js';
 import { renderFriends } from './pages/friends.js';
 import { renderAccount } from './pages/account.js';
@@ -47,6 +48,7 @@ function initApp() {
 
   // Routes
   defineRoute('home', () => renderHome());
+  defineRoute('faq', () => renderFaq());
   defineRoute('new-review', () => {
     if (!Session.currentUser()) { import('./components/authModal.js').then(m => m.showAuthModal('login')); window.location.hash = 'home'; return; }
     renderNewReview(null);
