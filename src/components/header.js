@@ -23,17 +23,14 @@ export function renderHeader() {
   const hashBase = currentHash.split('/')[0];
 
   headerEl.innerHTML = `
-    <div class="header-container">
-      <a href="#home" class="header-logo">ManhwaDB</a>
-      
-      <nav class="header-nav">
-        <button class="nav-link ${hashBase === 'home' || hashBase === '' ? 'active' : ''}" data-hash="home">🏠 Головна</button>
-        <button class="nav-link ${hashBase === 'faq' ? 'active' : ''}" data-hash="faq">❔ FAQ</button>
-        ${user ? `<button class="nav-link ${hashBase === 'new-review' ? 'active' : ''}" data-hash="new-review">✍️ Нова рецензія</button>` : ''}
-        ${user ? `<button class="nav-link ${hashBase === 'friends' ? 'active' : ''}" data-hash="friends">👥 Друзі</button>` : ''}
-        ${user ? `<button class="nav-link ${hashBase === 'account' ? 'active' : ''}" data-hash="account">👤 Мій акаунт</button>` : ''}
-      </nav>
-    </div>
+    <a href="#home" class="header-logo">ManhwaDB</a>
+    <nav class="header-nav">
+      <button class="nav-link ${hashBase === 'home' || hashBase === '' ? 'active' : ''}" data-hash="home">🏠 Головна</button>
+      <button class="nav-link ${hashBase === 'faq' ? 'active' : ''}" data-hash="faq">❔ FAQ</button>
+      ${user ? `<button class="nav-link ${hashBase === 'new-review' ? 'active' : ''}" data-hash="new-review">✍️ Нова рецензія</button>` : ''}
+      ${user ? `<button class="nav-link ${hashBase === 'friends' ? 'active' : ''}" data-hash="friends">👥 Друзі</button>` : ''}
+      ${user ? `<button class="nav-link ${hashBase === 'account' ? 'active' : ''}" data-hash="account">👤 Мій акаунт</button>` : ''}
+    </nav>
     <div class="header-auth">
       ${user
         ? `<span style="color:var(--text-secondary);font-size:0.85rem;margin-right:8px">Вітаємо, <strong style="color:var(--text-primary)">${user.username}</strong></span>
