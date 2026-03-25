@@ -3,7 +3,7 @@
 // ============================================================
 
 import { Reviews, Users, Comments, Session } from '../store.js';
-import { starsHtml, avatarHtml, timeAgo, formatDate, escapeHtml, showToast, showLoader } from '../utils.js';
+import { starsHtml, avatarHtml, timeAgo, formatDate, escapeHtml, showToast, showLoader, fetchX9QualityByTitle } from '../utils.js';
 import { navigate } from '../router.js';
 
 export async function renderReview({ id }) {
@@ -54,9 +54,18 @@ export async function renderReview({ id }) {
             ${review.date ? `<span style="color:var(--text-muted);font-size:0.85rem">📅 ${formatDate(review.date)}</span>` : ''}
             <span style="color:var(--text-muted);font-size:0.85rem">🕐 ${timeAgo(review.createdAt)}</span>
           </div>
-          <div style="margin-bottom:12px">
-            ${isPlanned ? '<span style="color:var(--text-muted);font-size:0.9rem">Ще не оцінено</span>' : starsHtml(review.rating, isDropped)}
-            ${!isPlanned ? `<span style="color:var(--text-muted);font-size:0.85rem;margin-left:8px">${isDropped ? 'Кинуто' : `${review.rating}/10`}</span>` : ''}
+          <div class="review-rating-block" style="margin-bottom:12px">
+            <div class="review-rating-left">
+              <div class="review-rating-left-top">
+                ${isPlanned ? '<span style="color:var(--text-muted);font-size:0.9rem">Ще не оцінено</span>' : starsHtml(review.rating, isDropped)}
+                ${!isPlanned ? `<span class="x9-quality-tag" id="x9-quality-tag" style="display:none">🏷 Знак качества x9</span>` : ''}
+              </div>
+              ${!isPlanned ? `<div class="review-user-rating-text" style="margin-top:6px;color:var(--text-muted);font-size:0.85rem">${isDropped ? 'Кинуто' : `${review.rating}/10`}</div>` : ''}
+            </div>
+            ${!isPlanned ? `<div class="x9-rating-widget" id="x9-rating-widget" style="display:none">
+              <div class="x9-quality-score" id="x9-rating-score">-</div>
+              <div class="x9-quality-votes" id="x9-rating-votes">-</div>
+            </div>` : ''}
           </div>
           ${review.tags?.length ? `<div class="review-tags">${review.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
           ${review.updatedAt ? `<span class="edited-badge">Редаговано ${timeAgo(review.updatedAt)}</span>` : ''}
@@ -94,6 +103,25 @@ export async function renderReview({ id }) {
 
   // Wire events
   document.getElementById('back-btn').addEventListener('click', () => history.back());
+
+  // x9 quality widget (best-effort, hides itself if not available)
+  if (!isPlanned) {
+    void (async () => {
+      try {
+        const data = await fetchX9QualityByTitle(review.title);
+        if (!data) return;
+        const tagEl = document.getElementById('x9-quality-tag');
+        const widgetEl = document.getElementById('x9-rating-widget');
+        if (!tagEl || !widgetEl) return;
+        tagEl.style.display = 'inline-flex';
+        widgetEl.style.display = 'block';
+        document.getElementById('x9-rating-score').textContent = String(data.score);
+        document.getElementById('x9-rating-votes').textContent = `${data.votes} голосов`;
+      } catch {
+        // No-op
+      }
+    })();
+  }
 
   container.querySelectorAll('[data-profile]').forEach(a => {
     a.addEventListener('click', e => { e.preventDefault(); navigate(`profile/${a.dataset.profile}`); });

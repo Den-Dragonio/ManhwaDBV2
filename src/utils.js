@@ -64,15 +64,87 @@ export function starsHtml(rating, isDropped = false) {
   if (isDropped) {
     return `<div class="crosses-display">${Array(10).fill('<span class="cross-mark">✕</span>').join('')}</div>`;
   }
-  const full = Math.floor(rating);
-  const half = rating % 1 >= 0.5;
-  const empty = 10 - full - (half ? 1 : 0);
+  const path = 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z';
+
+  let r = Number(rating);
+  if (!Number.isFinite(r)) r = 0;
+  // Clamp to [0..10] and keep a minimum visible score for any non-zero rating.
+  r = Math.max(0, Math.min(10, r));
+  if (r > 0 && r < 1) r = 1;
+
+  // Snap to nearest 0.5 to render proper half-stars.
+  r = Math.round(r * 2) / 2;
+
+  const full = Math.floor(r);
+  const half = r - full >= 0.5;
+  const empty = Math.max(0, 10 - full - (half ? 1 : 0));
+
   let html = '<div class="stars-display">';
-  for (let i = 0; i < full; i++) html += '<span class="star full"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></span>';
-  if (half) html += '<span class="star half"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></span>';
-  for (let i = 0; i < empty; i++) html += '<span class="star"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></span>';
-  html += `</div>`;
+  for (let i = 0; i < full; i++) {
+    html += `<span class="star full"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"/></svg></span>`;
+  }
+  if (half) {
+    html += `
+      <span class="star half">
+        <svg class="star-base" viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"/></svg>
+        <span class="star-half-fill" aria-hidden="true"><svg class="star-fill" viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"/></svg></span>
+      </span>`;
+  }
+  for (let i = 0; i < empty; i++) {
+    html += `<span class="star"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"/></svg></span>`;
+  }
+  html += '</div>';
   return html;
+}
+
+// Best-effort rating widget for x9.h-chan.me (may be blocked by CORS).
+// Returns: { score: number, votes: number } or null.
+export async function fetchX9QualityByTitle(title) {
+  const q = (title || '').trim();
+  if (!q) return null;
+
+  const cache = (typeof window !== 'undefined')
+    ? (window.__x9QualityCache ||= new Map())
+    : null;
+  if (cache?.has(q)) return cache.get(q);
+
+  try {
+    const searchRes = await fetch('https://x9.h-chan.me/engine/ajax/search.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ query: q }),
+    });
+    const searchHtml = await searchRes.text();
+
+    // Try to find first manga link from suggestions.
+    const hrefMatch = searchHtml.match(/href=["']([^"']*\/manga\/\d+-[^"']+\.html[^"']*)["']/i);
+    let mangaUrl = hrefMatch?.[1] || null;
+    if (!mangaUrl) {
+      const rel = searchHtml.match(/(\/manga\/\d+-[^"' >]+\.html)/i)?.[1];
+      if (rel) mangaUrl = 'https://x9.h-chan.me' + rel;
+    }
+    if (!mangaUrl) return null;
+
+    if (mangaUrl.startsWith('//')) mangaUrl = 'https:' + mangaUrl;
+    if (!mangaUrl.startsWith('http')) mangaUrl = 'https://x9.h-chan.me' + (mangaUrl.startsWith('/') ? mangaUrl : '/' + mangaUrl);
+
+    const mangaRes = await fetch(mangaUrl);
+    const mangaHtml = await mangaRes.text();
+
+    const plus = parseInt((mangaHtml.match(/Плюсиков:[^0-9]*([0-9]+)/i) || [])[1], 10);
+    const likes = parseInt((mangaHtml.match(/Лайков:[^0-9]*([0-9]+)/i) || [])[1], 10);
+
+    const score = Number.isFinite(likes) ? likes : plus;
+    const votes = Number.isFinite(plus) ? plus : likes;
+
+    if (!Number.isFinite(score) || !Number.isFinite(votes)) return null;
+    const result = { score: Math.max(1, score), votes: Math.max(1, votes) };
+
+    cache?.set(q, result);
+    return result;
+  } catch {
+    return null;
+  }
 }
 
 export function avatarHtml(user, size = 'md') {

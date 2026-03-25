@@ -251,16 +251,20 @@ body::before {
 .modal-tab.active { background: var(--bg-card); color: var(--text-primary); box-shadow: var(--shadow-card); }
 
 /* ======== STAR RATING ======== */
-.stars-display { display: flex; align-items: center; gap: 2px; }
-.star { position: relative; display: inline-block; font-size: 16px; width: 16px; height: 16px; }
-.star svg { width: 100%; height: 100%; fill: var(--text-muted); }
-.star.full svg { fill: var(--star-color); }
-.star.half { overflow: hidden; }
-.star.half::after {
-  content: '★'; position: absolute; left: 0; top: 0; width: 50%; overflow: hidden;
-  color: var(--star-color); font-size: 16px; line-height: 1;
+.stars-display { display: inline-flex; align-items: center; gap: 2px; }
+.star {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
 }
-.star.half svg { fill: var(--text-muted); }
+.star svg { width: 100%; height: 100%; display: block; fill: var(--text-muted); }
+.star.full svg { fill: var(--star-color); }
+.star.half .star-half-fill { position: absolute; left: 0; top: 0; width: 50%; height: 100%; overflow: hidden; }
+.star.half .star-half-fill svg { fill: var(--star-color); }
 .crosses-display { display: flex; gap: 2px; }
 .cross-mark { color: var(--cross-color); font-size: 14px; font-weight: 700; }
 
@@ -469,6 +473,16 @@ input[type="range"].star-slider::-webkit-slider-thumb {
 .review-full-text { font-size: 1rem; color: var(--text-secondary); line-height: 1.8; white-space: pre-wrap; }
 .review-action-bar { display: flex; gap: 10px; align-items: center; margin-top: 24px; flex-wrap: wrap; }
 .edited-badge { font-size: 0.75rem; color: var(--text-muted); font-style: italic; padding: 3px 10px; border-radius: 20px; background: var(--bg-surface); border: 1px solid var(--border); }
+
+.review-rating-block { display: flex; gap: 16px; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; }
+.review-rating-left { flex: 1; min-width: 240px; }
+.review-rating-left-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.review-user-rating-text { white-space: nowrap; }
+
+.x9-quality-tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-secondary); font-size: 0.8rem; font-weight: 700; white-space: nowrap; }
+.x9-rating-widget { min-width: 120px; text-align: right; padding-top: 2px; }
+.x9-quality-score { font-family: var(--font-display); font-weight: 800; font-size: 1.1rem; color: var(--accent2); line-height: 1.1; }
+.x9-quality-votes { margin-top: 2px; font-size: 0.8rem; color: var(--text-muted); }
 
 /* ======== SCROLLBAR ======== */
 ::-webkit-scrollbar { width: 6px; }

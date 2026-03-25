@@ -11,20 +11,81 @@ export function renderFaq() {
         <h1 class="section-title" style="margin:0">ℹ️ Правила та FAQ</h1>
       </div>
       <div class="card card-padding" style="line-height:1.6;font-size:0.95rem">
-        <h3 style="margin-top:0;margin-bottom:16px">Правила платформи ManhwaDB</h3>
-        <p>Вітаємо на нашій спільноті для огляду манхв! Щоб підтримувати приємну атмосферу, будь ласка, дотримуйтесь наступних правил:</p>
-        <ol style="margin-left:20px;margin-bottom:32px;padding-left:12px">
-          <li style="margin-bottom:12px"><strong>Повага до інших:</strong> Заборонені будь-які образи, погрози або мова ворожнечі у рецензіях чи коментарях.</li>
-          <li style="margin-bottom:12px"><strong>Без спойлерів:</strong> Якщо ви обговорюєте важливий сюжетний поворот у рецензії, попереджайте про це інших, щоб не зіпсувати враження від прочитання.</li>
-          <li style="margin-bottom:12px"><strong>Релевантний контент:</strong> Рецензії повинні стосуватися безпосередньо манхви. Спам або відрита реклама ресурсів суворо заборонені.</li>
-          <li style="margin-bottom:12px"><strong>Медиа-контент:</strong> Відповідальність за завантажений контент несе користувач. Суворо заборонено завантажувати медіа-матеріали шокуючого характеру або надмірно відверті (18+) як обкладинки для рецензій.</li>
-        </ol>
+        <h3 style="margin-top:0;margin-bottom:16px">Правила ManhwaDB</h3>
 
-        <h3 style="margin-bottom:12px">Обмеження</h3>
-        <ul style="margin-left:20px;color:var(--text-muted);padding-left:12px">
-          <li style="margin-bottom:8px">Функціонал "Оцінка" (від 1 до 10) блокується для манхв зі статусом <em>"В планах"</em> або <em>"Кинуто"</em>.</li>
-          <li style="margin-bottom:8px">Обкладинки для рецензій, які ви завантажуєте власноруч, автоматично стискаються бразуером у фоновому режимі (WebP) для економії місця. Проте файли розміром більше 10MB можуть спричинити зависання.</li>
-          <li style="margin-bottom:8px">Кожен користувач може додавати манхви у "Топ-4", які відображатимуться на його головній сторінці профілю для всіх друзів.</li>
+        <p style="color:var(--text-muted);margin-bottom:16px">
+          ManhwaDB — платформа для рецензий и обсуждений манхвы/манги. Сайт создан при поддержке ИИ.
+        </p>
+
+        <h4 style="font-size:1rem;margin-bottom:8px">1) Цензура</h4>
+        <ul style="margin-left:20px;color:var(--text-muted);padding-left:12px;margin-bottom:18px">
+          <li style="margin-bottom:8px"><strong>Комментарии и рецензии, а также обложки</strong> цензуре не подлежат.</li>
+        </ul>
+
+        <h4 style="font-size:1rem;margin-bottom:8px">2) Как писать рецензию</h4>
+        <ul style="margin-left:20px;color:var(--text-muted);padding-left:12px;margin-bottom:18px">
+          <li style="margin-bottom:8px">
+            В идеале всегда пишите <strong>название манхвы на английском</strong> при создании рецензии и выбирайте его из выпадающего списка.
+            Это поможет всем пользователям сайта ориентироваться и использовать поиск.
+          </li>
+          <li style="margin-bottom:8px">
+            Пожалуйста, не разглашайте личные данные или другие важные вещи в открытых платформах.
+          </li>
+        </ul>
+
+        <h4 style="font-size:1rem;margin-bottom:8px">3) Контакты и реклама</h4>
+        <ul style="margin-left:20px;color:var(--text-muted);padding-left:12px;margin-bottom:18px">
+          <li style="margin-bottom:8px">
+            Если у вас возникнут проблемы, вопросы или предложения — пишите на почту:
+            <strong>Trahalich.Boomer@gmail.com</strong>
+          </li>
+          <li style="margin-bottom:8px">
+            Сайт открыт к рекламным предложениям, но при этом создан не в коммерческих целях.
+          </li>
+        </ul>
+
+        <h4 style="font-size:1rem;margin-bottom:8px">4) Уведомления</h4>
+        <ul style="margin-left:20px;color:var(--text-muted);padding-left:12px;margin-bottom:18px">
+          <li style="margin-bottom:8px">
+            В скором времени будет осуществлена рассылка push-уведомлений по поводу новостей и активности друзей.
+            Все нюансы или полное отключение появится в настройках.
+          </li>
+        </ul>
+
+        <h4 style="font-size:1rem;margin-bottom:8px">5) Что можно добавлять</h4>
+        <ul style="margin-left:20px;color:var(--text-muted);padding-left:12px;margin-bottom:18px">
+          <li style="margin-bottom:8px">
+            Никто не запрещает помимо манхв добавлять сюда и манги (обычные).
+          </li>
+          <li style="margin-bottom:8px">
+            Никто также не запрещает ограничиваться 18+ контентом: самые обычные манги и манхвы тут тоже приветствуются.
+          </li>
+          <li style="margin-bottom:8px">
+            Важно: не стоит делать из сайта оценки всего чего угодно.
+            Это касается фильмов, книг, музыки и всего прочего, аниме в том числе.
+            <strong>Хентай-аниме разрешен</strong> — единственное исключение.
+          </li>
+        </ul>
+
+        <h4 style="font-size:1rem;margin-bottom:8px">6) Ответственность</h4>
+        <ul style="margin-left:20px;color:var(--text-muted);padding-left:12px;margin-bottom:18px">
+          <li style="margin-bottom:8px">
+            Не соблюдение этих незамысловатых правил будет караться удалением аккаунта и всего связанного с ним контента.
+          </li>
+        </ul>
+
+        <h4 style="font-size:1rem;margin-bottom:8px">7) Почта и развитие сайта</h4>
+        <ul style="margin-left:20px;color:var(--text-muted);padding-left:12px;margin-bottom:0">
+          <li style="margin-bottom:8px">
+            Пока сайт малоизвестен и не популярен (скорее всего так и останется), привязка к почте будет не обязательна.
+            Но если начнутся массовые спам-атаки, у меня не останется другого выхода, кроме как заставить всех привязать почту.
+          </li>
+          <li style="margin-bottom:8px">
+            Также планируется добавление английского и других языков.
+          </li>
+          <li style="margin-bottom:8px">
+            Следите за обновлениями в новостной ленте: новые варианты тем оформления и новый нормальный домен (если обживемся спонсором).
+          </li>
         </ul>
       </div>
     </div>
