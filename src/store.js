@@ -257,16 +257,17 @@ export const News = {
 
 // ---- TOP SITES (kept in localStorage for easy editing) ----
 const DEFAULT_TOP_SITES = [
-  { name: 'Webtoon', url: 'https://www.webtoons.com', desc: 'Офіційна платформа' },
-  { name: 'MangaDex', url: 'https://mangadex.org', desc: 'Велика база' },
-  { name: 'Kakao Page', url: 'https://page.kakao.com', desc: 'Корейська платформа' },
-  { name: 'Tapas', url: 'https://tapas.io', desc: 'Англомовна платформа' },
-  { name: 'Bato.to', url: 'https://bato.to', desc: 'Читати безкоштовно' },
+  { name: 'Toongod', url: 'https://www.toongod.org/', desc: '18+' },
+  { name: 'Hentai20', url: 'https://hentai20.io/', desc: '18+' },
+  { name: 'AllHen', url: 'https://20.allhen.online/', desc: '18+' },
+  { name: 'Desu', url: 'https://desu.uno/', desc: '18+' },
+  { name: 'HentaiChan', url: 'https://hentaichan.live/', desc: '18+' },
+  { name: 'imhentai', url: 'https://imhentai.xxx/', desc: '18+' }
 ];
 
 export const TopSites = {
   all: () => {
-    try { const s = JSON.parse(localStorage.getItem('mdb_top_sites')); return s?.length ? s : DEFAULT_TOP_SITES; } catch { return DEFAULT_TOP_SITES; }
+    try { const s = JSON.parse(localStorage.getItem('mdb_top_sites_v2')); return s?.length ? s : DEFAULT_TOP_SITES; } catch { return DEFAULT_TOP_SITES; }
   },
-  save: (sites) => localStorage.setItem('mdb_top_sites', JSON.stringify(sites)),
+  save: (sites) => localStorage.setItem('mdb_top_sites_v2', JSON.stringify(sites)),
 };

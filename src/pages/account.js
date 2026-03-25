@@ -172,7 +172,7 @@ function showEditModal(user) {
             <label class="form-label">Тема сайту</label>
             <select class="select" id="edit-theme">
               <option value="dark" ${localStorage.getItem('theme') !== 'light' ? 'selected' : ''}>🌙 Темна тема</option>
-              <option value="light" ${localStorage.getItem('theme') === 'light' ? 'selected' : ''}>☀️ Світла тема (Facebook)</option>
+              <option value="light" ${localStorage.getItem('theme') === 'light' ? 'selected' : ''}>☀️ Світла тема</option>
             </select>
           </div>
           <div class="form-group" style="margin-bottom:14px">
