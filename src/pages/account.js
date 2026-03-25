@@ -175,9 +175,12 @@ function showEditModal(user) {
               <option value="light" ${localStorage.getItem('theme') === 'light' ? 'selected' : ''}>☀️ Світла тема</option>
             </select>
           </div>
-          <div class="form-group" style="margin-bottom:14px; display:flex; align-items:center; gap:10px;">
-            <input type="checkbox" id="edit-push" ${localStorage.getItem('push_enabled') === 'true' ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer">
+          <div class="form-group" style="margin-bottom:14px; display:flex; flex-direction:row; align-items:center; justify-content:space-between;">
             <label class="form-label" for="edit-push" style="margin:0;cursor:pointer">Отримувати Push-повідомлення</label>
+            <label class="ios-switch">
+              <input type="checkbox" id="edit-push" ${localStorage.getItem('push_enabled') === 'true' ? 'checked' : ''}>
+              <span class="ios-slider"></span>
+            </label>
           </div>
           <div class="form-group" style="margin-bottom:14px">
             <label class="form-label">Опис</label>

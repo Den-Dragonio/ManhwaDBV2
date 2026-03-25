@@ -22,6 +22,16 @@ import { renderAllReviews } from './pages/allReviews.js';
 let routerStarted = false;
 
 function initApp() {
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal-backdrop').forEach(m => {
+        const closeBtn = m.querySelector('.modal-close, #edit-modal-close2, #del-modal-close2');
+        if (closeBtn) closeBtn.click();
+        else m.remove();
+      });
+    }
+  });
+
   const app = document.getElementById('app');
   app.innerHTML = '';
 
