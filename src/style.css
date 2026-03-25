@@ -327,6 +327,24 @@ input[type="range"].star-slider::-webkit-slider-thumb {
 .review-text-preview { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .review-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .tag { padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; background: var(--bg-surface); color: var(--text-secondary); border: 1px solid var(--border); }
+.preset-tags-wrap { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.preset-tag {
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
+  white-space: nowrap;
+  user-select: none;
+}
+.preset-tag:hover { background: var(--bg-hover); border-color: var(--text-muted); transform: translateY(-1px); }
+.preset-tag.active { box-shadow: 0 0 0 3px rgba(255,255,255,0.04); }
+.preset-tag-fapped { background: rgba(168,218,220,0.10); border-color: rgba(168,218,220,0.28); color: var(--accent3); }
+.preset-tag-fire { background: rgba(244,162,97,0.12); border-color: rgba(244,162,97,0.32); color: var(--accent2); }
+.preset-tag-vomit { background: rgba(230,57,70,0.10); border-color: rgba(230,57,70,0.26); color: var(--accent); }
 .status-badge { padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
 .status-done { background: rgba(76,175,80,0.15); color: #81c784; border: 1px solid rgba(76,175,80,0.3); }
 .status-reading { background: rgba(168,218,220,0.15); color: var(--accent3); border: 1px solid rgba(168,218,220,0.3); }

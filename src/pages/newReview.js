@@ -73,6 +73,15 @@ export async function renderNewReview(editId = null) {
         <div class="form-group" style="margin-bottom:16px">
           <label class="form-label">Теги (через кому)</label>
           <input class="input" type="text" id="review-tags" placeholder="екшн, романтика, фентезі..." value="${existing?.tags?.join(', ') || ''}">
+          <div class="preset-tags-wrap" id="preset-tags-wrap" style="margin-top:10px">
+            <button type="button" class="preset-tag preset-tag-fapped" data-tag="fapped">fapped</button>
+            <button type="button" class="preset-tag preset-tag-fire" data-tag="Сюжет 🔥">Сюжет 🔥</button>
+            <button type="button" class="preset-tag preset-tag-fire" data-tag="Графика 🔥">Графика 🔥</button>
+            <button type="button" class="preset-tag preset-tag-fire" data-tag="Персонажи 🔥">Персонажи 🔥</button>
+            <button type="button" class="preset-tag preset-tag-vomit" data-tag="Сюжет 🤢">Сюжет 🤢</button>
+            <button type="button" class="preset-tag preset-tag-vomit" data-tag="Графика 🤢">Графика 🤢</button>
+            <button type="button" class="preset-tag preset-tag-vomit" data-tag="Персонажи 🤢">Персонажи 🤢</button>
+          </div>
         </div>
 
         <!-- Status -->
@@ -295,6 +304,45 @@ export async function renderNewReview(editId = null) {
   });
 
   renderInteractiveStars();
+
+  // Preset tags (bubbles) under the tags input
+  const reviewTagsInput = document.getElementById('review-tags');
+  const presetTagsWrap = document.getElementById('preset-tags-wrap');
+  if (reviewTagsInput && presetTagsWrap) {
+    function parseTags(raw) {
+      return (raw || '')
+        .split(',')
+        .map(t => t.trim())
+        .filter(Boolean);
+    }
+
+    function syncPresetActive() {
+      const active = new Set(parseTags(reviewTagsInput.value).map(t => t.toLowerCase()));
+      presetTagsWrap.querySelectorAll('.preset-tag[data-tag]').forEach(btn => {
+        const tagVal = (btn.dataset.tag || '').trim();
+        const isActive = active.has(tagVal.toLowerCase());
+        btn.classList.toggle('active', isActive);
+      });
+    }
+
+    function addPresetTag(tagVal) {
+      const tag = (tagVal || '').trim();
+      if (!tag) return;
+      const tags = parseTags(reviewTagsInput.value);
+      const exists = tags.some(t => t.toLowerCase() === tag.toLowerCase());
+      if (exists) return;
+      tags.push(tag);
+      reviewTagsInput.value = tags.join(', ');
+      syncPresetActive();
+    }
+
+    presetTagsWrap.querySelectorAll('.preset-tag[data-tag]').forEach(btn => {
+      btn.addEventListener('click', () => addPresetTag(btn.dataset.tag));
+    });
+
+    syncPresetActive();
+    reviewTagsInput.addEventListener('input', syncPresetActive);
+  }
 
   const saveBtn = document.getElementById('save-review-btn');
   saveBtn.addEventListener('click', async () => {
