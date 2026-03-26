@@ -88,6 +88,11 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
             <button type="button" class="preset-tag preset-tag-fire" style="background:rgba(100,149,237,0.1);color:#6495ed;border-color:rgba(100,149,237,0.3)" data-tag="Драма">Драма 🎭</button>
             <button type="button" class="preset-tag preset-tag-fire" style="background:rgba(255,165,0,0.1);color:#ffa500;border-color:rgba(255,165,0,0.3)" data-tag="Комедія">Комедія 😂</button>
             <button type="button" class="preset-tag preset-tag-fire" style="background:rgba(128,128,128,0.1);color:#808080;border-color:rgba(128,128,128,0.3)" data-tag="Кримінальний">Кримінальний 🔫</button>
+            
+            <button type="button" class="preset-tag" data-tag="Тройничок">Тройничок 👨‍👩‍👧</button>
+            <button type="button" class="preset-tag" data-tag="Гарем">Гарем 👯‍♀️</button>
+            <button type="button" class="preset-tag" data-tag="Таймскип">Таймскип ⏳</button>
+            <button type="button" class="preset-tag" data-tag="Принуждение">Принуждение ⛓️</button>
 
             <!-- 4. Community Stats -->
             <button type="button" class="preset-tag preset-tag-fire" data-tag="Сюжет +">Сюжет 😍</button>
@@ -335,7 +340,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
         console.error(e);
         resultsBox.innerHTML = '<div style="padding:12px;text-align:center;color:var(--accent)">Помилка пошуку</div>';
       }
-    }, 300); // 300ms optimization
+    }, 150); // 150ms fast debounce
   });
 
   document.addEventListener('click', e => {

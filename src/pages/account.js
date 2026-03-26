@@ -62,9 +62,12 @@ export async function renderAccountPage(userId, isOwn = false) {
         <div class="section-title">⭐ Топ 4 манхви</div>
         <div class="top4-grid">
           ${top4Reviews.map((r, i) => `
-            <div class="top4-slot${isOwn ? '' : ' no-hover'}" data-slot="${i}">
-              ${r?.coverBase64 ? `<img src="${r.coverBase64}" alt="${escapeHtml(r?.title || '')}">` : (isOwn ? '+' : '?')}
-              ${r && isOwn ? `<button class="top4-slot-remove" data-remove-slot="${i}">✕</button>` : ''}
+            <div class="top4-slot-wrap">
+              <div class="top4-slot${isOwn ? '' : ' no-hover'}" data-slot="${i}">
+                ${r?.coverBase64 ? `<img src="${r.coverBase64}" alt="${escapeHtml(r?.title || '')}">` : (isOwn ? '+' : '?')}
+                ${r && isOwn ? `<button class="top4-slot-remove" data-remove-slot="${i}">✕</button>` : ''}
+              </div>
+              ${r ? `<a href="#review/${r.id}" class="top4-slot-title">${escapeHtml(r.title)}</a>` : ''}
             </div>`).join('')}
         </div>
         ${isOwn ? `<p style="color:var(--text-muted);font-size:0.78rem;margin-top:8px">Натисніть на слот, щоб обрати манхву</p>` : ''}
@@ -127,17 +130,18 @@ export async function renderAccountPage(userId, isOwn = false) {
   });
 
   if (isOwn) {
-    // Avatar upload
+    // Avatar upload with crop/center modal
     const avatarWrap = document.getElementById('avatar-wrap');
     const avatarFile = document.getElementById('avatar-file');
     avatarWrap?.addEventListener('click', () => avatarFile.click());
     avatarFile?.addEventListener('change', async () => {
       const file = avatarFile.files[0]; if (!file) return;
-      const base64 = await compressAvatar(file);
-      const freshUser = Session.currentUser();
-      await Users.save({ ...freshUser, avatarBase64: base64 });
-      showToast('Аватар оновлено ✅', 'success');
-      await renderAccountPage(userId, isOwn);
+      showAvatarCropModal(file, async (croppedBase64) => {
+        const freshUser = Session.currentUser();
+        await Users.save({ ...freshUser, avatarBase64: croppedBase64 });
+        showToast('Аватар оновлено ✅', 'success');
+        await renderAccountPage(userId, isOwn);
+      });
     });
 
     document.getElementById('edit-account-btn')?.addEventListener('click', () => showEditModal(user));
@@ -470,8 +474,11 @@ function showTop4Picker(userId, slotIdx, reviews) {
           <div class="manhwa-grid">
             ${reviews.length === 0 ? `<div class='empty-state'><h3>Немає рецензій</h3></div>` :
               reviews.map(r => `
-                <div class="manhwa-thumb" data-pick-review="${r.id}" title="${escapeHtml(r.title)}">
-                  ${r.coverBase64 ? `<img src="${r.coverBase64}" alt="">` : `<div class="manhwa-thumb-placeholder" style="font-size:11px;padding:4px;text-align:center;word-break:break-word">${escapeHtml(r.title)}</div>`}
+                <div class="manhwa-thumb-wrap" data-pick-review="${r.id}" title="${escapeHtml(r.title)}" style="cursor:pointer">
+                  <div class="manhwa-thumb">
+                    ${r.coverBase64 ? `<img src="${r.coverBase64}" alt="">` : `<div class="manhwa-thumb-placeholder" style="font-size:11px;padding:4px;text-align:center;word-break:break-word">${escapeHtml(r.title)}</div>`}
+                  </div>
+                  <div style="font-size:0.75rem;font-weight:600;margin-top:6px;text-align:center;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;width:100%">${escapeHtml(r.title)}</div>
                 </div>`).join('')}
           </div>
         </div>
@@ -499,4 +506,142 @@ function showTop4Picker(userId, slotIdx, reviews) {
       await renderAccountPage(userId, true);
     });
   });
+}
+
+// ============================================================
+// Avatar Crop / Center Modal
+// ============================================================
+function showAvatarCropModal(file, onSave) {
+  const holder = document.getElementById('edit-modal-placeholder') || document.getElementById('top4-modal-placeholder');
+  const reader = new FileReader();
+  reader.onload = () => {
+    const imgSrc = reader.result;
+    
+    holder.innerHTML = `
+      <div class="modal-backdrop" id="avatar-crop-modal">
+        <div class="modal-box" style="max-width:420px">
+          <div class="modal-header">
+            <span class="modal-title">✂️ Центрувати аватар</span>
+            <button class="modal-close" id="crop-close">✕</button>
+          </div>
+          <div class="modal-body" style="display:flex;flex-direction:column;align-items:center;gap:16px">
+            <div id="crop-area" style="width:220px;height:220px;border-radius:50%;overflow:hidden;position:relative;border:3px solid var(--accent);background:var(--bg-surface);cursor:grab;touch-action:none">
+              <img id="crop-img" src="${imgSrc}" style="position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;max-width:none">
+            </div>
+            <div style="width:100%;display:flex;align-items:center;gap:10px">
+              <span style="font-size:0.8rem;color:var(--text-muted)">🔍</span>
+              <input type="range" id="crop-zoom" min="100" max="400" value="100" style="flex:1;accent-color:var(--accent)">
+              <span id="crop-zoom-label" style="font-size:0.75rem;color:var(--text-muted);min-width:40px;text-align:right">100%</span>
+            </div>
+            <div style="display:flex;gap:8px;width:100%">
+              <button class="btn btn-primary" id="crop-save" style="flex:1">✅ Зберегти</button>
+              <button class="btn btn-secondary" id="crop-cancel">Скасувати</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    const close = () => { holder.innerHTML = ''; };
+    document.getElementById('crop-close').addEventListener('click', close);
+    document.getElementById('crop-cancel').addEventListener('click', close);
+    document.getElementById('avatar-crop-modal').addEventListener('click', e => { if (e.target.id === 'avatar-crop-modal') close(); });
+
+    const cropArea = document.getElementById('crop-area');
+    const cropImg = document.getElementById('crop-img');
+    const zoomSlider = document.getElementById('crop-zoom');
+    const zoomLabel = document.getElementById('crop-zoom-label');
+
+    let scale = 1;
+    let offsetX = 0, offsetY = 0;
+    let dragging = false;
+    let startX = 0, startY = 0;
+
+    const img = new Image();
+    img.onload = () => {
+      // Fit image to cover circle initially
+      const areaSize = 220;
+      const minDim = Math.min(img.width, img.height);
+      scale = areaSize / minDim;
+      zoomSlider.min = Math.round(scale * 100);
+      zoomSlider.max = Math.round(scale * 400);
+      zoomSlider.value = Math.round(scale * 100);
+
+      offsetX = -(img.width * scale - areaSize) / 2;
+      offsetY = -(img.height * scale - areaSize) / 2;
+      updateTransform();
+    };
+    img.src = imgSrc;
+
+    function updateTransform() {
+      cropImg.style.width = `${img.width * scale}px`;
+      cropImg.style.height = `${img.height * scale}px`;
+      cropImg.style.left = `${offsetX}px`;
+      cropImg.style.top = `${offsetY}px`;
+      zoomLabel.textContent = Math.round(scale * 100 / (220 / Math.min(img.width, img.height))) + '%';
+    }
+
+    function clampOffsets() {
+      const areaSize = 220;
+      const w = img.width * scale;
+      const h = img.height * scale;
+      offsetX = Math.min(0, Math.max(areaSize - w, offsetX));
+      offsetY = Math.min(0, Math.max(areaSize - h, offsetY));
+    }
+
+    zoomSlider.addEventListener('input', () => {
+      const oldCenter = { x: (110 - offsetX) / scale, y: (110 - offsetY) / scale };
+      scale = parseInt(zoomSlider.value) / 100;
+      offsetX = 110 - oldCenter.x * scale;
+      offsetY = 110 - oldCenter.y * scale;
+      clampOffsets();
+      updateTransform();
+    });
+
+    cropArea.addEventListener('pointerdown', e => {
+      dragging = true;
+      startX = e.clientX - offsetX;
+      startY = e.clientY - offsetY;
+      cropArea.style.cursor = 'grabbing';
+      cropArea.setPointerCapture(e.pointerId);
+    });
+    cropArea.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      offsetX = e.clientX - startX;
+      offsetY = e.clientY - startY;
+      clampOffsets();
+      updateTransform();
+    });
+    cropArea.addEventListener('pointerup', () => {
+      dragging = false;
+      cropArea.style.cursor = 'grab';
+    });
+
+    document.getElementById('crop-save').addEventListener('click', () => {
+      const canvas = document.createElement('canvas');
+      const size = 200;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      // Draw circular clip
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+
+      const drawScale = size / 220;
+      ctx.drawImage(
+        img,
+        offsetX * drawScale,
+        offsetY * drawScale,
+        img.width * scale * drawScale,
+        img.height * scale * drawScale
+      );
+
+      const base64 = canvas.toDataURL('image/webp', 0.8);
+      close();
+      onSave(base64);
+    });
+  };
+  reader.readAsDataURL(file);
 }
