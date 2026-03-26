@@ -152,27 +152,6 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
     }
   });
 
-  // Handle pre-selected title
-  if (preSelectedTitleId && !existing) {
-    (async () => {
-      showLoader(resultsBox);
-      try {
-        const { Reviews } = await import('../store.js');
-        const reviews = await Reviews.byTitle(preSelectedTitleId);
-        if (reviews.length > 0) {
-          const t = reviews[0];
-          titleInput.value = t.title;
-          selectedTitleId = preSelectedTitleId;
-          document.getElementById('review-chapters').value = t.chapters || 0;
-          if (t.coverBase64) { currentCover = t.coverBase64; refreshCoverUI(); }
-        }
-      } catch (e) {
-        console.error("Error pre-filling title:", e);
-      } finally {
-        resultsBox.style.display = 'none';
-      }
-    })();
-  }
 
   document.getElementById('back-btn').addEventListener('click', () => history.back());
   document.getElementById('cancel-review-btn').addEventListener('click', () => history.back());
@@ -364,6 +343,46 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
       resultsBox.style.display = 'none';
     }
   });
+
+  // Handle pre-selected title (Optimization: Corrected order of execution)
+  if (preSelectedTitleId && !existing) {
+    (async () => {
+      try {
+        const { Reviews } = await import('../store.js');
+        const reviews = await Reviews.byTitle(preSelectedTitleId);
+        if (reviews.length > 0) {
+          const t = reviews[0];
+          titleInput.value = t.title;
+          titleInput.readOnly = true;
+          titleInput.style.background = 'var(--bg-hover)';
+          
+          selectedTitleId = preSelectedTitleId;
+          document.getElementById('review-chapters').value = t.chapters || 0;
+          if (t.coverBase64) { 
+            currentCover = t.coverBase64; 
+            refreshCoverUI(); 
+          }
+          
+          // Add a "Change" button next to the title if they want to switch
+          const changeBtn = document.createElement('button');
+          changeBtn.className = 'btn btn-ghost btn-xs';
+          changeBtn.textContent = '🔄 Змінити тайтл';
+          changeBtn.style.marginTop = '4px';
+          changeBtn.style.display = 'block';
+          changeBtn.onclick = () => {
+            titleInput.readOnly = false;
+            titleInput.value = '';
+            titleInput.style.background = '';
+            selectedTitleId = null;
+            changeBtn.remove();
+          };
+          titleInput.parentNode.appendChild(changeBtn);
+        }
+      } catch (e) {
+        console.error("Error pre-filling title:", e);
+      }
+    })();
+  }
 
   // Rating/status wiring
   const statusSel = document.getElementById('review-status');
