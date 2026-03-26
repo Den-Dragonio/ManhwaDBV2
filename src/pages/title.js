@@ -46,9 +46,10 @@ export async function renderTitle({ id }) {
         </div>
         <div class="title-info">
           <h1 class="title-name">${escapeHtml(title)}</h1>
-          <div class="title-meta-pills">
+          <div class="title-meta-pills" style="display:flex;flex-wrap:wrap;gap:8px">
             <span class="pill">📚 ${latest.chapters || 0} глав</span>
             <span class="pill">📈 ${count} відгуків</span>
+            <button class="btn btn-primary btn-sm" id="write-review-btn" style="margin-left:auto;box-shadow:var(--shadow-float)">✍️ Написати рецензію</button>
           </div>
           
           <div class="title-rating-section">
@@ -104,6 +105,11 @@ export async function renderTitle({ id }) {
 
   // UI Events
   document.getElementById('back-btn').addEventListener('click', () => history.back());
+  
+  const writeBtn = document.getElementById('write-review-btn');
+  if (writeBtn) {
+    writeBtn.addEventListener('click', () => navigate(`new-review/${id}`));
+  }
   
   container.querySelectorAll('.review-card-item').forEach(card => {
     card.addEventListener('click', () => navigate(`review/${card.dataset.id}`));

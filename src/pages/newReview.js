@@ -6,7 +6,7 @@ import { Reviews, Session, News } from '../store.js';
 import { starsHtml, compressImage, showToast, escapeHtml, showLoader, searchHChan } from '../utils.js';
 import { navigate } from '../router.js';
 
-export async function renderNewReview(editId = null) {
+export async function renderNewReview(editId = null, preSelectedTitleId = null) {
   const user = Session.currentUser();
   if (!user) { navigate('home'); return; }
 
@@ -23,7 +23,7 @@ export async function renderNewReview(editId = null) {
   let currentRating = existing?.rating ?? 5;
   let currentChapters = existing?.chapters || '';
   let currentStatus = existing?.status || 'done';
-  let selectedTitleId = existing?.titleId || null;
+  let selectedTitleId = existing?.titleId || preSelectedTitleId || null;
 
   container.innerHTML = `
     <div class="page-container" style="max-width:720px">
@@ -152,6 +152,28 @@ export async function renderNewReview(editId = null) {
     }
   });
 
+  // Handle pre-selected title
+  if (preSelectedTitleId && !existing) {
+    (async () => {
+      showLoader(resultsBox);
+      try {
+        const { Reviews } = await import('../store.js');
+        const reviews = await Reviews.byTitle(preSelectedTitleId);
+        if (reviews.length > 0) {
+          const t = reviews[0];
+          titleInput.value = t.title;
+          selectedTitleId = preSelectedTitleId;
+          document.getElementById('review-chapters').value = t.chapters || 0;
+          if (t.coverBase64) { currentCover = t.coverBase64; refreshCoverUI(); }
+        }
+      } catch (e) {
+        console.error("Error pre-filling title:", e);
+      } finally {
+        resultsBox.style.display = 'none';
+      }
+    })();
+  }
+
   document.getElementById('back-btn').addEventListener('click', () => history.back());
   document.getElementById('cancel-review-btn').addEventListener('click', () => history.back());
 
@@ -201,22 +223,50 @@ export async function renderNewReview(editId = null) {
     if (file?.type.startsWith('image/')) { currentCover = await compressImage(file, 700, 0.65); refreshCoverUI(); }
   });
 
-  // AniList API Integration
+  // Search Integration (Firestore + AniList + H-Chan)
   const titleInput = document.getElementById('review-title');
   const resultsBox = document.getElementById('autocomplete-results');
   let searchTimeout = null;
 
   titleInput.addEventListener('input', () => {
     const q = titleInput.value.trim();
-    if (q.length < 3) { resultsBox.style.display = 'none'; return; }
+    if (q.length < 2) { resultsBox.style.display = 'none'; return; }
     
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(async () => {
       try {
         resultsBox.style.display = 'block';
-        resultsBox.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted)">Пошук в AniList та H-Chan...</div>';
+        resultsBox.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted)">Шукаємо в базі та AniList...</div>';
         
-        const [aniRes, hchanRes] = await Promise.all([
+        // Parallel fetching
+        const [firestoreRes, aniRes, hchanRes] = await Promise.all([
+          // 1. Efficient Firestore prefix query (Optimization requested)
+          (async () => {
+            try {
+              const { query, collection, orderBy, startAt, endAt, limit, getDocs } = await import('firebase/firestore');
+              const { db } = await import('../firebase.js');
+              const qry = query(
+                collection(db, 'reviews'),
+                orderBy('title'),
+                startAt(q),
+                endAt(q + '\uf8ff'),
+                limit(10)
+              );
+              const snap = await getDocs(qry);
+              const items = [];
+              const seen = new Set();
+              snap.docs.forEach(doc => {
+                const data = doc.data();
+                const tid = data.titleId;
+                if (!seen.has(tid)) {
+                  items.push({ id: doc.id, title: data.title, titleId: tid, cover: data.coverBase64, chapters: data.chapters });
+                  seen.add(tid);
+                }
+              });
+              return items;
+            } catch (e) { console.warn("Firestore search fail:", e); return []; }
+          })(),
+          // 2. AniList
           fetch('https://graphql.anilist.co', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -225,18 +275,33 @@ export async function renderNewReview(editId = null) {
               variables: { search: q }
             })
           }).then(r => r.json()).catch(() => ({ data: { Page: { media: [] } } })),
+          // 3. H-Chan
           searchHChan(q).catch(() => [])
         ]);
 
+        const dbItems = firestoreRes || [];
         const aniMedia = aniRes.data?.Page?.media || [];
         const hchanMedia = hchanRes || [];
         
-        if (aniMedia.length === 0 && hchanMedia.length === 0) {
+        if (dbItems.length === 0 && aniMedia.length === 0 && hchanMedia.length === 0) {
           resultsBox.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted)">Нічого не знайдено</div>';
           return;
         }
 
         let html = '';
+
+        // Prioritize database items
+        dbItems.forEach(m => {
+          html += `
+            <div class="ac-item db-match" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);background:rgba(var(--accent-rgb), 0.05)" 
+                 data-title="${escapeHtml(m.title)}" data-cover="${m.cover || ''}" data-chapters="${m.chapters || 0}" data-tid="${m.titleId}">
+              ${m.cover ? `<img src="${m.cover}" style="width:32px;height:45px;object-fit:cover;border-radius:4px">` : `<div style="width:32px;height:45px;background:var(--bg-hover);border-radius:4px"></div>`}
+              <div style="flex:1">
+                <div style="font-weight:600;font-size:0.9rem">${escapeHtml(m.title)}</div>
+                <div style="font-size:0.7rem;color:var(--accent2)">У базі ManhwaDB</div>
+              </div>
+            </div>`;
+        });
 
         aniMedia.forEach(m => {
           const t = m.title.english || m.title.romaji;
@@ -261,7 +326,7 @@ export async function renderNewReview(editId = null) {
               <div style="width:32px;height:45px;background:var(--accent-soft);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px">🔞</div>
               <div style="flex:1">
                 <div style="font-weight:500;font-size:0.9rem">${escapeHtml(m.title)}</div>
-                <div style="font-size:0.7rem;color:var(--accent2)">H-Chan (Перехід на сайт)</div>
+                <div style="font-size:0.7rem;color:var(--accent2)">H-Chan</div>
               </div>
             </div>`;
         });
@@ -270,10 +335,9 @@ export async function renderNewReview(editId = null) {
 
         resultsBox.querySelectorAll('.ac-item').forEach(item => {
           item.addEventListener('mouseenter', () => item.style.background = 'var(--bg-hover)');
-          item.addEventListener('mouseleave', () => item.style.background = '');
+          item.addEventListener('mouseleave', () => item.style.background = item.classList.contains('db-match') ? 'rgba(var(--accent-rgb), 0.05)' : '');
           item.addEventListener('click', () => {
             if (item.dataset.url && !item.dataset.tid) {
-               // Old logic for H-Chan without tid fallback
               window.open(item.dataset.url, '_blank');
               return;
             }
@@ -292,7 +356,7 @@ export async function renderNewReview(editId = null) {
         console.error(e);
         resultsBox.innerHTML = '<div style="padding:12px;text-align:center;color:var(--accent)">Помилка пошуку</div>';
       }
-    }, 400);
+    }, 300); // 300ms optimization
   });
 
   document.addEventListener('click', e => {
@@ -335,18 +399,18 @@ export async function renderNewReview(editId = null) {
         ${isHalf ? `<span class="star-half-fill"><svg viewBox="0 0 24 24"><path d="${path}"/></svg></span>` : ''}
       `;
 
-      star.addEventListener('mousemove', (e) => {
+      star.addEventListener('pointermove', (e) => {
         const rect = star.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const val = (x < rect.width / 2) ? i - 0.5 : i;
         renderInteractiveStars(val);
       });
 
-      star.addEventListener('click', (e) => {
+      star.addEventListener('pointerdown', (e) => {
+        // Use pointerdown for instant primary click/tap response
         const rect = star.getBoundingClientRect();
         const x = e.clientX - rect.left;
         currentRating = (x < rect.width / 2) ? i - 0.5 : i;
-        // Minimum rating 1 enforcement
         if (currentRating < 1) currentRating = 1;
         renderInteractiveStars();
         ratingLabel.textContent = currentRating + '/10';

@@ -54,6 +54,10 @@ function initApp() {
     if (!Session.currentUser()) { import('./components/authModal.js').then(m => m.showAuthModal('login')); window.location.hash = 'home'; return; }
     renderNewReview(null);
   });
+  defineRoute('new-review/:titleId', ({ titleId }) => {
+    if (!Session.currentUser()) { import('./components/authModal.js').then(m => m.showAuthModal('login')); window.location.hash = 'home'; return; }
+    renderNewReview(null, titleId);
+  });
   defineRoute('edit-review/:id', ({ id }) => {
     if (!Session.currentUser()) { window.location.hash = 'home'; return; }
     renderNewReview(id);
