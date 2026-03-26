@@ -3,7 +3,7 @@
 // ============================================================
 
 import { Reviews, Session, News } from '../store.js';
-import { starsHtml, compressImage, showToast, escapeHtml, showLoader } from '../utils.js';
+import { starsHtml, compressImage, showToast, escapeHtml, showLoader, searchHChan } from '../utils.js';
 import { navigate } from '../router.js';
 
 export async function renderNewReview(editId = null) {
@@ -225,7 +225,7 @@ export async function renderNewReview(editId = null) {
               variables: { search: q }
             })
           }).then(r => r.json()).catch(() => ({ data: { Page: { media: [] } } })),
-          import('../utils.js').then(u => u.searchHChan(q)).catch(() => [])
+          searchHChan(q).catch(() => [])
         ]);
 
         const aniMedia = aniRes.data?.Page?.media || [];
@@ -235,6 +235,8 @@ export async function renderNewReview(editId = null) {
           resultsBox.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted)">Нічого не знайдено</div>';
           return;
         }
+
+        let html = '';
 
         aniMedia.forEach(m => {
           const t = m.title.english || m.title.romaji;
@@ -287,9 +289,10 @@ export async function renderNewReview(editId = null) {
           });
         });
       } catch (e) {
+        console.error(e);
         resultsBox.innerHTML = '<div style="padding:12px;text-align:center;color:var(--accent)">Помилка пошуку</div>';
       }
-    }, 600);
+    }, 400);
   });
 
   document.addEventListener('click', e => {
