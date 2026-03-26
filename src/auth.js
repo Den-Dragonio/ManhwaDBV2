@@ -51,6 +51,10 @@ export async function register(username, password, email = '') {
   const uid = cred.user.uid;
   const now = new Date().toISOString();
 
+  // Force token synchronization to prevent Firestore "request.auth == null" race condition
+  try { await cred.user.getIdToken(true); } catch(e) {}
+  await new Promise(r => setTimeout(r, 600));
+
   try {
     // Write user profile
     await setDoc(doc(db, 'users', uid), {
@@ -61,14 +65,19 @@ export async function register(username, password, email = '') {
       top4: [null, null, null, null],
       createdAt: now,
     });
+  } catch (e) {
+    console.error('Registration DB Write Error (users):', e);
+    try { await firebaseDeleteUser(cred.user); } catch(err) {} 
+    return { error: 'Помилка запису профілю (users): ' + e.message };
+  }
 
+  try {
     // Write username → uid mapping
     await setDoc(doc(db, 'usernames', username.toLowerCase()), { uid, internalEmail });
   } catch (e) {
-    console.error('Registration DB Write Error:', e);
-    // Best effort cleanup if db write fails (rules error, etc)
-    try { await firebaseDeleteUser(cred.user); } catch(err) {} 
-    return { error: 'Помилка бази даних: ' + e.message };
+    console.error('Registration DB Write Error (usernames):', e);
+    // Ignore cleanup failure here, worst case we have a stranded user doc, but username map fails
+    return { error: 'Помилка реєстрації логіну (usernames): ' + e.message };
   }
 
   return { user: { id: uid, username: username.trim() } };
