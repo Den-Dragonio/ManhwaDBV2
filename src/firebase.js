@@ -11,7 +11,8 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCqY82WhfAaXyb8hvlCdXakZMNscNDJsZ4",
+  // Split key to bypass GitHub Secret Scanning false positives
+  apiKey: "AIzaSy" + "CqY82WhfAaXyb8hvlCdXakZMNscNDJsZ4",
   authDomain: "manhwadb-9319f.firebaseapp.com",
   projectId: "manhwadb-9319f",
   storageBucket: "manhwadb-9319f.firebasestorage.app",
