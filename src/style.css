@@ -303,7 +303,11 @@ body::before {
   overflow: hidden; 
   pointer-events: none; 
 }
-.star.half .star-half-fill svg { fill: var(--star-color); }
+.star.half .star-half-fill svg { 
+  width: 200%; /* Match parent star size (2 * 50%) */
+  height: 100%;
+  fill: var(--star-color); 
+}
 .crosses-display { display: flex; gap: 4px; }
 .cross-mark { color: var(--cross-color); font-size: 18px; font-weight: 800; }
 

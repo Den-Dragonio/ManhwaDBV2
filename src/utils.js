@@ -95,10 +95,14 @@ export function starsHtml(rating, isDropped = false) {
 export function formatTag(tag) {
   if (!tag) return '';
   let t = tag.trim();
-  if (t.endsWith('+')) return t.slice(0, -1).trim() + ' 🔥';
+  if (t === 'fapped') return 'fapped 🍆💦';
+  if (t.endsWith('+')) {
+    const posEmojis = ['😍', '❤️', '🌟', '✨', '💎', '🔥'];
+    const idx = Math.abs(t.length) % posEmojis.length;
+    return t.slice(0, -1).trim() + ' ' + posEmojis[idx];
+  }
   if (t.endsWith('-')) {
     const negEmojis = ['🗑️', '💩', '🤮', '📉', '👎', '🧊'];
-    // Deterministic choice based on tag string length/hash
     const idx = Math.abs(t.length) % negEmojis.length;
     return t.slice(0, -1).trim() + ' ' + negEmojis[idx];
   }

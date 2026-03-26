@@ -11,6 +11,7 @@ export async function renderNewReview(editId = null) {
   if (!user) { navigate('home'); return; }
 
   const container = document.getElementById('page-root');
+  const today = new Date().toISOString().split('T')[0];
   let existing = null;
 
   if (editId) {
@@ -66,7 +67,7 @@ export async function renderNewReview(editId = null) {
         <!-- Date -->
         <div class="form-group" style="margin-bottom:16px">
           <label class="form-label">Дата прочитання (необов'язково)</label>
-          <input class="input" type="date" id="review-date" value="${existing?.date || ''}">
+          <input class="input" type="date" id="review-date" min="2000-01-01" max="${today}" value="${existing?.date || ''}">
         </div>
 
         <!-- Tags -->
@@ -74,12 +75,23 @@ export async function renderNewReview(editId = null) {
           <label class="form-label">Теги (через кому)</label>
           <input class="input" type="text" id="review-tags" placeholder="екшн, романтика, фентезі..." value="${existing?.tags?.join(', ') || ''}">
           <div class="preset-tags-wrap" id="preset-tags-wrap" style="margin-top:10px">
-            <button type="button" class="preset-tag preset-tag-fapped" data-tag="fapped">🔥 fapped</button>
+            <!-- 1. Special -->
+            <button type="button" class="preset-tag preset-tag-fapped" data-tag="fapped">fapped 🍆💦</button>
+
+            <!-- 2. Types -->
             <button type="button" class="preset-tag" data-tag="Манхва">Манхва</button>
             <button type="button" class="preset-tag" data-tag="Манга">Манга</button>
-            <button type="button" class="preset-tag preset-tag-fire" data-tag="Сюжет +">Сюжет 🔥</button>
-            <button type="button" class="preset-tag preset-tag-fire" data-tag="Графіка +">Графіка 🔥</button>
-            <button type="button" class="preset-tag preset-tag-fire" data-tag="Герої +">Герої 🔥</button>
+
+            <!-- 3. Genres -->
+            <button type="button" class="preset-tag preset-tag-fire" style="background:rgba(255,105,180,0.1);color:#ff69b4;border-color:rgba(255,105,180,0.3)" data-tag="Романтика">Романтика 😍</button>
+            <button type="button" class="preset-tag preset-tag-fire" style="background:rgba(100,149,237,0.1);color:#6495ed;border-color:rgba(100,149,237,0.3)" data-tag="Драма">Драма 🎭</button>
+            <button type="button" class="preset-tag preset-tag-fire" style="background:rgba(255,165,0,0.1);color:#ffa500;border-color:rgba(255,165,0,0.3)" data-tag="Комедія">Комедія 😂</button>
+            <button type="button" class="preset-tag preset-tag-fire" style="background:rgba(128,128,128,0.1);color:#808080;border-color:rgba(128,128,128,0.3)" data-tag="Кримінальний">Кримінальний 🔫</button>
+
+            <!-- 4. Community Stats -->
+            <button type="button" class="preset-tag preset-tag-fire" data-tag="Сюжет +">Сюжет 😍</button>
+            <button type="button" class="preset-tag preset-tag-fire" data-tag="Графіка +">Графіка ❤️</button>
+            <button type="button" class="preset-tag preset-tag-fire" data-tag="Герої +">Герої 😍</button>
             <button type="button" class="preset-tag preset-tag-vomit" data-tag="Сюжет -">Сюжет 💩</button>
             <button type="button" class="preset-tag preset-tag-vomit" data-tag="Графіка -">Графіка 🤮</button>
             <button type="button" class="preset-tag preset-tag-vomit" data-tag="Герої -">Герої 👎</button>
@@ -125,6 +137,19 @@ export async function renderNewReview(editId = null) {
         </div>
       </div>
     </div>`;
+
+  // Date normalization (24 -> 2024)
+  const dateInput = document.getElementById('review-date');
+  dateInput.addEventListener('blur', () => {
+    const val = dateInput.value;
+    if (!val) return;
+    const parts = val.split('-');
+    let year = parseInt(parts[0], 10);
+    if (year > 0 && year < 100) {
+      year += 2000;
+      dateInput.value = `${year}-${parts[1]}-${parts[2]}`;
+    }
+  });
 
   document.getElementById('back-btn').addEventListener('click', () => history.back());
   document.getElementById('cancel-review-btn').addEventListener('click', () => history.back());
@@ -396,7 +421,21 @@ export async function renderNewReview(editId = null) {
 
     if (!title) { errEl.textContent = "Назва обов'язкова"; errEl.style.display = 'block'; return; }
     if (!chaptersStr || isNaN(chapters) || chapters < 0) { errEl.textContent = "Кількість глав обов'язкова (0 або більше)"; errEl.style.display = 'block'; return; }
-    if (date && new Date(date) > new Date()) { errEl.textContent = "Дата прочитання не може бути в майбутньому"; errEl.style.display = 'block'; return; }
+    if (date) {
+      const selectedDate = new Date(date);
+      const now = new Date();
+      const year = selectedDate.getFullYear();
+      if (selectedDate > now) {
+        errEl.textContent = "Дата прочитання не може бути в майбутньому";
+        errEl.style.display = 'block';
+        return;
+      }
+      if (year > 2100 || year < 2000) {
+        errEl.textContent = "Будь ласка, вкажіть коректний рік (2000-2100)";
+        errEl.style.display = 'block';
+        return;
+      }
+    }
 
     saveBtn.disabled = true; saveBtn.textContent = 'Збереження...';
     const data = { title, coverBase64: currentCover, text, rating, chapters, status, tags, date };
