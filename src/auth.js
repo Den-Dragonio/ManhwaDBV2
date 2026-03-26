@@ -31,8 +31,12 @@ export async function register(username, password, email = '') {
     return { error: 'Пароль має бути мінімум 6 символів' };
 
   // Check username uniqueness in Firestore
-  const unameSnap = await getDoc(doc(db, 'usernames', username.toLowerCase()));
-  if (unameSnap.exists()) return { error: 'Такий логін вже зайнятий. Оберіть інший.' };
+  try {
+    const unameSnap = await getDoc(doc(db, 'usernames', username.toLowerCase()));
+    if (unameSnap.exists()) return { error: 'Такий логін вже зайнятий. Оберіть інший.' };
+  } catch (e) {
+    return { error: 'Помилка з\'єднання або доступу (Rules): ' + e.message };
+  }
 
   // Create Firebase Auth account
   const internalEmail = usernameToEmail(username);
@@ -47,18 +51,25 @@ export async function register(username, password, email = '') {
   const uid = cred.user.uid;
   const now = new Date().toISOString();
 
-  // Write user profile
-  await setDoc(doc(db, 'users', uid), {
-    username: username.trim(),
-    email: email || '',
-    bio: '',
-    avatarBase64: '',
-    top4: [null, null, null, null],
-    createdAt: now,
-  });
+  try {
+    // Write user profile
+    await setDoc(doc(db, 'users', uid), {
+      username: username.trim(),
+      email: email || '',
+      bio: '',
+      avatarBase64: '',
+      top4: [null, null, null, null],
+      createdAt: now,
+    });
 
-  // Write username → uid mapping
-  await setDoc(doc(db, 'usernames', username.toLowerCase()), { uid, internalEmail });
+    // Write username → uid mapping
+    await setDoc(doc(db, 'usernames', username.toLowerCase()), { uid, internalEmail });
+  } catch (e) {
+    console.error('Registration DB Write Error:', e);
+    // Best effort cleanup if db write fails (rules error, etc)
+    try { await firebaseDeleteUser(cred.user); } catch(err) {} 
+    return { error: 'Помилка бази даних: ' + e.message };
+  }
 
   return { user: { id: uid, username: username.trim() } };
 }
