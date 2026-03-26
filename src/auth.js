@@ -53,31 +53,48 @@ export async function register(username, password, email = '') {
 
   // Force token synchronization to prevent Firestore "request.auth == null" race condition
   try { await cred.user.getIdToken(true); } catch(e) {}
-  await new Promise(r => setTimeout(r, 600));
+  await new Promise(r => setTimeout(r, 1500));
 
-  try {
-    // Write user profile
-    await setDoc(doc(db, 'users', uid), {
+  // Resilient retry wrapper for Firestore writes
+  const writeWithRetry = async (fn, retries = 3) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        await fn();
+        return null; // success
+      } catch (e) {
+        if (i === retries - 1) return e;
+        await new Promise(r => setTimeout(r, 800 * (i + 1))); // backoff
+      }
+    }
+  };
+
+  // Write user profile
+  const usersErr = await writeWithRetry(() => 
+    setDoc(doc(db, 'users', uid), {
       username: username.trim(),
       email: email || '',
       bio: '',
       avatarBase64: '',
       top4: [null, null, null, null],
       createdAt: now,
-    });
-  } catch (e) {
-    console.error('Registration DB Write Error (users):', e);
+    })
+  );
+
+  if (usersErr) {
+    console.error('Registration DB Write Error (users):', usersErr);
     try { await firebaseDeleteUser(cred.user); } catch(err) {} 
-    return { error: 'Помилка запису профілю (users): ' + e.message };
+    return { error: 'Помилка запису профілю (users): ' + usersErr.message };
   }
 
-  try {
-    // Write username → uid mapping
-    await setDoc(doc(db, 'usernames', username.toLowerCase()), { uid, internalEmail });
-  } catch (e) {
-    console.error('Registration DB Write Error (usernames):', e);
-    // Ignore cleanup failure here, worst case we have a stranded user doc, but username map fails
-    return { error: 'Помилка реєстрації логіну (usernames): ' + e.message };
+  // Write username → uid mapping
+  const unamesErr = await writeWithRetry(() =>
+    setDoc(doc(db, 'usernames', username.toLowerCase()), { uid, internalEmail })
+  );
+
+  if (unamesErr) {
+    console.error('Registration DB Write Error (usernames):', unamesErr);
+    try { await firebaseDeleteUser(cred.user); } catch(err) {} 
+    return { error: 'Помилка реєстрації логіну (usernames): ' + unamesErr.message };
   }
 
   return { user: { id: uid, username: username.trim() } };
