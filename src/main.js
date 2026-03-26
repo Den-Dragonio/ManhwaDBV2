@@ -77,8 +77,13 @@ function initApp() {
 onAuthStateChanged(auth, async (firebaseUser) => {
   if (firebaseUser) {
     // Load full user profile from Firestore
-    const profile = await Users.byId(firebaseUser.uid);
-    Session.setProfile(profile ? { ...profile, id: firebaseUser.uid } : { id: firebaseUser.uid, username: firebaseUser.displayName || 'User' });
+    try {
+      const profile = await Users.byId(firebaseUser.uid);
+      Session.setProfile(profile ? { ...profile, id: firebaseUser.uid } : { id: firebaseUser.uid, username: firebaseUser.displayName || 'User' });
+    } catch (e) {
+      console.warn("Could not fetch user profile on load (Firebase Rules or Network):", e);
+      Session.setProfile({ id: firebaseUser.uid, username: firebaseUser.displayName || 'User' });
+    }
   } else {
     Session.setProfile(null);
   }
