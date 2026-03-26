@@ -26,7 +26,7 @@ export async function renderAllReviews({ userId }) {
         <button class="btn btn-ghost btn-sm" id="back-btn">← Назад</button>
         ${avatarHtml(user, 'sm')}
         <div>
-          <div style="font-family:var(--font-display);font-weight:700;font-size:1.1rem">Бібліотека: ${escapeHtml(user.username)}</div>
+      <div style="font-family:var(--font-display);font-weight:700;font-size:1.1rem">Бібліотека: ${escapeHtml(user.username)}</div>
           <div style="color:var(--text-muted);font-size:0.8rem">Всього збережено — ${reviews.length} манхв</div>
         </div>
       </div>
@@ -38,7 +38,10 @@ export async function renderAllReviews({ userId }) {
         <button class="btn btn-secondary btn-sm sort-btn" data-sort="date" data-dir="desc">📅 Дата ⬇️</button>
         <button class="btn btn-secondary btn-sm sort-btn" data-sort="status" data-dir="desc">📌 Статус ⬇️</button>
         <button class="btn btn-secondary btn-sm sort-btn" data-sort="chapters" data-dir="desc">📚 Глави ⬇️</button>
-        <input class="input" id="all-reviews-search" placeholder="🔍 Пошук..." style="max-width:220px;margin-left:auto">
+        <select class="input" id="tag-filter-select" style="max-width:200px;margin-left:auto;padding:6px 10px;height:auto">
+          <!-- Tag options injected dynamically -->
+        </select>
+        <input class="input" id="all-reviews-search" placeholder="🔍 Пошук..." style="max-width:220px;margin-left:8px">
       </div>
 
       <div id="all-reviews-grid" style="display:flex;flex-direction:column;gap:10px">
@@ -57,12 +60,38 @@ export async function renderAllReviews({ userId }) {
   let currentSort = 'rating';
   let currentDir = 'desc';
   let currentSearch = '';
+  let currentTag = '';
   const grid = document.getElementById('all-reviews-grid');
+  const tagSelect = document.getElementById('tag-filter-select');
+
+  // Populate dynamic tags
+  const tagCounts = {};
+  reviews.forEach(r => {
+    (r.tags || []).forEach(t => {
+      const q = t.trim().toLowerCase();
+      if (q) {
+        if (!tagCounts[q]) tagCounts[q] = { name: t.trim(), count: 0 };
+        tagCounts[q].count++;
+      }
+    });
+  });
+  
+  const tagEntries = Object.values(tagCounts).sort((a,b) => b.count - a.count);
+  let tagHtml = '<option value="">Всі теги</option>';
+  tagEntries.forEach(tg => {
+    tagHtml += `<option value="${escapeHtml(tg.name.toLowerCase())}">${escapeHtml(tg.name)} (${tg.count})</option>`;
+  });
+  tagSelect.innerHTML = tagHtml;
+
+  tagSelect.addEventListener('change', e => {
+    currentTag = e.target.value.trim().toLowerCase();
+    applySortAndFilter();
+  });
 
   const getSortVal = (r, by) => {
-    if (by === 'rating') return r.rating;
-    if (by === 'chapters') return r.chapters || 0;
-    if (by === 'date') return new Date(r.date || r.createdAt).getTime();
+    if (by === 'rating') return Number(r.rating) || 0;
+    if (by === 'chapters') return Number(r.chapters) || 0;
+    if (by === 'date') return r.date ? new Date(r.date).getTime() : 0;
     if (by === 'status') {
       const w = { done: 4, reading: 3, planned: 2, dropped: 1 };
       return w[r.status] || 0;
@@ -71,18 +100,31 @@ export async function renderAllReviews({ userId }) {
   };
 
   const applySortAndFilter = () => {
-    let filtered = [...reviews];
-    if (currentSearch) filtered = filtered.filter(r => r.title.toLowerCase().includes(currentSearch));
+    let list = [...reviews];
     
-    filtered.sort((a, b) => {
-      const vA = getSortVal(a, currentSort);
-      const vB = getSortVal(b, currentSort);
-      if (vA < vB) return currentDir === 'desc' ? 1 : -1;
-      if (vA > vB) return currentDir === 'desc' ? -1 : 1;
-      return 0;
+    if (currentSearch) {
+      list = list.filter(r => r.title.toLowerCase().includes(currentSearch));
+    }
+
+    if (currentTag) {
+      list = list.filter(r => (r.tags || []).some(t => t.trim().toLowerCase() === currentTag));
+    }
+
+    list.sort((a, b) => {
+      let va = getSortVal(a, currentSort);
+      let vb = getSortVal(b, currentSort);
+
+      let diff = va > vb ? 1 : (va < vb ? -1 : 0);
+      if (diff === 0) {
+        if (currentSort !== 'date') {
+          diff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          return currentDir === 'desc' ? diff : -diff;
+        }
+      }
+      return currentDir === 'desc' ? -diff : diff;
     });
 
-    grid.innerHTML = renderGrid(filtered);
+    grid.innerHTML = renderGrid(list);
     wireClicks();
   };
 

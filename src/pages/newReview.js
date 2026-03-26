@@ -75,12 +75,16 @@ export async function renderNewReview(editId = null) {
           <input class="input" type="text" id="review-tags" placeholder="екшн, романтика, фентезі..." value="${existing?.tags?.join(', ') || ''}">
           <div class="preset-tags-wrap" id="preset-tags-wrap" style="margin-top:10px">
             <button type="button" class="preset-tag preset-tag-fapped" data-tag="fapped">fapped</button>
-            <button type="button" class="preset-tag preset-tag-fire" data-tag="Сюжет 🔥">Сюжет 🔥</button>
-            <button type="button" class="preset-tag preset-tag-fire" data-tag="Графика 🔥">Графика 🔥</button>
-            <button type="button" class="preset-tag preset-tag-fire" data-tag="Персонажи 🔥">Персонажи 🔥</button>
-            <button type="button" class="preset-tag preset-tag-vomit" data-tag="Сюжет 🤢">Сюжет 🤢</button>
-            <button type="button" class="preset-tag preset-tag-vomit" data-tag="Графика 🤢">Графика 🤢</button>
-            <button type="button" class="preset-tag preset-tag-vomit" data-tag="Персонажи 🤢">Персонажи 🤢</button>
+            <button type="button" class="preset-tag" data-tag="Манхва">Манхва</button>
+            <button type="button" class="preset-tag" data-tag="Манга">Манга</button>
+            <button type="button" class="preset-tag preset-tag-fire" data-tag="Сюжет +">Сюжет +</button>
+            <button type="button" class="preset-tag preset-tag-fire" data-tag="Графіка +">Графіка +</button>
+            <button type="button" class="preset-tag preset-tag-fire" data-tag="Герої +">Герої +</button>
+            <button type="button" class="preset-tag preset-tag-vomit" data-tag="Сюжет -">Сюжет -</button>
+            <button type="button" class="preset-tag preset-tag-vomit" data-tag="Графіка -">Графіка -</button>
+            <button type="button" class="preset-tag preset-tag-vomit" data-tag="Герої -">Герої -</button>
+            <button type="button" class="preset-tag" data-tag="Довга">Довга</button>
+            <button type="button" class="preset-tag" data-tag="Коротка">Коротка</button>
           </div>
         </div>
 
