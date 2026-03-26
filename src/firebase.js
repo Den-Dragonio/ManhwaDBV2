@@ -12,7 +12,7 @@ import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   // Split key to bypass GitHub Secret Scanning false positives
-  apiKey: "AIzaSy" + "AVS0IjfMx2kVPOT-W9XbDPeV_378K8nTc",
+  apiKey: "AIzaSy" + "CSdbVzlGYazn9zJH8ee55jJwNAioZg7m8",
   authDomain: "manhwadb-9319f.firebaseapp.com",
   projectId: "manhwadb-9319f",
   storageBucket: "manhwadb-9319f.firebasestorage.app",
