@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: '/ManhwaDBV2/', // Ensure absolute routing resolution on GitHub Pages
+  base: './', // Makes built assets use relative paths so they work on GitHub Pages regardless of repo name
 });
