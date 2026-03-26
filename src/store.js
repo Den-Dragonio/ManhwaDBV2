@@ -87,16 +87,49 @@ export const Reviews = {
     return normalizeDocs(snap).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   },
   topRated: async (n = 10) => {
-    // Fetch recent reviews and sort by rating client-side
-    const snap = await getDocs(query(collection(db, 'reviews'), orderBy('createdAt', 'desc'), limit(200)));
-    return normalizeDocs(snap).sort((a, b) => b.rating - a.rating).slice(0, n);
+    // Fetch recent reviews to aggregate
+    const snap = await getDocs(query(collection(db, 'reviews'), orderBy('createdAt', 'desc'), limit(500)));
+    const all = normalizeDocs(snap);
+    
+    // Group by titleId
+    const groups = {};
+    all.forEach(r => {
+      const tid = r.titleId || `manual_${r.title.toLowerCase().replace(/\s+/g, '_')}`;
+      if (!groups[tid]) groups[tid] = { ...r, titleId: tid, totalRating: 0, count: 0 };
+      groups[tid].totalRating += r.rating;
+      groups[tid].count += 1;
+    });
+
+    return Object.values(groups)
+      .map(g => ({
+        ...g,
+        avgRating: g.totalRating / g.count,
+        // We'll use the most recent review's metadata (cover, etc.) for the collection
+      }))
+      .sort((a, b) => b.avgRating - a.avgRating)
+      .slice(0, n);
+  },
+  byTitle: async (titleId) => {
+    const q = query(collection(db, 'reviews'), where('titleId', '==', titleId));
+    const snap = await getDocs(q);
+    return normalizeDocs(snap).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  },
+  exists: async (userId, titleId) => {
+    const q = query(collection(db, 'reviews'), 
+      where('userId', '==', userId), 
+      where('titleId', '==', titleId)
+    );
+    const snap = await getDocs(q);
+    return !snap.empty;
   },
   create: async (userId, data) => {
     const user = Session.currentUser();
+    const titleId = data.titleId || `manual_${data.title.toLowerCase().replace(/\s+/g, '_')}`;
     const docRef = await addDoc(collection(db, 'reviews'), {
       userId,
       username: user?.username || 'Unknown',
       title: data.title || '',
+      titleId,
       coverBase64: data.coverBase64 || '',
       text: data.text || '',
       rating: data.rating ?? 0,
@@ -109,7 +142,7 @@ export const Reviews = {
       createdAt: new Date().toISOString(),
       updatedAt: null,
     });
-    return { id: docRef.id, userId, ...data };
+    return { id: docRef.id, userId, titleId, ...data };
   },
   update: async (id, data) => {
     await updateDoc(doc(db, 'reviews', id), { ...data, updatedAt: new Date().toISOString() });

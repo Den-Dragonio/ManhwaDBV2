@@ -23,6 +23,7 @@ export async function renderNewReview(editId = null) {
   let currentRating = existing?.rating ?? 5;
   let currentChapters = existing?.chapters || '';
   let currentStatus = existing?.status || 'done';
+  let selectedTitleId = existing?.titleId || null;
 
   container.innerHTML = `
     <div class="page-container" style="max-width:720px">
@@ -235,12 +236,13 @@ export async function renderNewReview(editId = null) {
           return;
         }
 
-        let html = '';
         aniMedia.forEach(m => {
           const t = m.title.english || m.title.romaji;
           const cover = m.coverImage?.extraLarge || '';
+          const tid = `ani_${m.id}`;
           html += `
-            <div class="ac-item" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);transition:0.1s" data-title="${escapeHtml(t)}" data-cover="${cover}" data-chapters="${m.chapters || 0}">
+            <div class="ac-item" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);transition:0.1s" 
+                 data-title="${escapeHtml(t)}" data-cover="${cover}" data-chapters="${m.chapters || 0}" data-tid="${tid}">
               ${cover ? `<img src="${cover}" style="width:32px;height:45px;object-fit:cover;border-radius:4px">` : `<div style="width:32px;height:45px;background:var(--bg-hover);border-radius:4px"></div>`}
               <div style="flex:1">
                 <div style="font-weight:500;font-size:0.9rem">${escapeHtml(t)}</div>
@@ -250,8 +252,10 @@ export async function renderNewReview(editId = null) {
         });
 
         hchanMedia.forEach(m => {
+          const tid = `hchan_${btoa(m.url).substring(0, 16)}`;
           html += `
-            <div class="ac-item" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);transition:0.1s" data-title="${escapeHtml(m.title)}" data-url="${m.url}">
+            <div class="ac-item" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);transition:0.1s" 
+                 data-title="${escapeHtml(m.title)}" data-url="${m.url}" data-tid="${tid}">
               <div style="width:32px;height:45px;background:var(--accent-soft);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px">🔞</div>
               <div style="flex:1">
                 <div style="font-weight:500;font-size:0.9rem">${escapeHtml(m.title)}</div>
@@ -266,11 +270,13 @@ export async function renderNewReview(editId = null) {
           item.addEventListener('mouseenter', () => item.style.background = 'var(--bg-hover)');
           item.addEventListener('mouseleave', () => item.style.background = '');
           item.addEventListener('click', () => {
-            if (item.dataset.url) {
+            if (item.dataset.url && !item.dataset.tid) {
+               // Old logic for H-Chan without tid fallback
               window.open(item.dataset.url, '_blank');
               return;
             }
             titleInput.value = item.dataset.title;
+            selectedTitleId = item.dataset.tid;
             document.getElementById('review-chapters').value = item.dataset.chapters;
             if (item.dataset.cover) {
               currentCover = item.dataset.cover;
@@ -420,7 +426,7 @@ export async function renderNewReview(editId = null) {
     const errEl = document.getElementById('review-form-error');
 
     if (!title) { errEl.textContent = "Назва обов'язкова"; errEl.style.display = 'block'; return; }
-    if (!chaptersStr || isNaN(chapters) || chapters < 0) { errEl.textContent = "Кількість глав обов'язкова (0 або більше)"; errEl.style.display = 'block'; return; }
+    if (!chaptersStr || isNaN(chapters) || chapters <= 0) { errEl.textContent = "Кількість глав обов'язкова (більше 0)"; errEl.style.display = 'block'; return; }
     if (date) {
       const selectedDate = new Date(date);
       const now = new Date();
@@ -438,7 +444,21 @@ export async function renderNewReview(editId = null) {
     }
 
     saveBtn.disabled = true; saveBtn.textContent = 'Збереження...';
-    const data = { title, coverBase64: currentCover, text, rating, chapters, status, tags, date };
+    
+    // Final TitleId determination
+    const titleId = selectedTitleId || `manual_${title.toLowerCase().replace(/\s+/g, '_')}`;
+
+    if (!existing) {
+      const exists = await Reviews.exists(user.id, titleId);
+      if (exists) {
+        errEl.textContent = "Ви вже залишили рецензію на цей тайтл!";
+        errEl.style.display = 'block';
+        saveBtn.disabled = false; saveBtn.textContent = saveBtn.dataset.label;
+        return;
+      }
+    }
+
+    const data = { title, titleId, coverBase64: currentCover, text, rating, chapters, status, tags, date };
 
     try {
       let review;

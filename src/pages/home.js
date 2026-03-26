@@ -11,12 +11,11 @@ export async function renderHome() {
   showLoader(container);
 
   const topSites = TopSites.all();
-  const [allReviews, newsItems] = await Promise.all([
+  const [allReviews, topReviews, newsItems] = await Promise.all([
     Reviews.all(),
+    Reviews.topRated(10),
     News.recent(50),
   ]);
-
-  const topReviews = [...allReviews].sort((a, b) => b.rating - a.rating).slice(0, 10);
 
   container.innerHTML = `
     <div class="page-container">
@@ -51,22 +50,24 @@ export async function renderHome() {
               </div>
             </div>
 
-            <!-- Top Popular -->
             <div>
               <div class="section-title">🔥 Топ популярних</div>
               <div class="scrollable-feed">
                 ${topReviews.length === 0
                   ? `<div class="empty-state"><div class="empty-icon">📖</div><h3>Ще немає рецензій</h3></div>`
                   : topReviews.map((r, i) => `
-                      <div class="review-card" style="margin-bottom:10px;cursor:pointer" data-review-id="${r.id}">
+                      <div class="review-card" style="margin-bottom:10px;cursor:pointer" data-title-id="${r.titleId}">
                         <div class="review-cover">
                           ${r.coverBase64 ? `<img src="${r.coverBase64}" alt="">` : '<div class="review-cover-placeholder">📖</div>'}
                         </div>
                         <div class="review-body">
                           <div style="font-size:0.75rem;color:var(--accent2);font-weight:700;margin-bottom:2px">#${i + 1}</div>
                           <div class="review-title">${escapeHtml(r.title)}</div>
-                          <div style="margin:4px 0">${starsHtml(r.rating, r.status === 'dropped')}</div>
-                          <div style="font-size:0.78rem;color:var(--text-muted)">— ${escapeHtml(r.username || '')}</div>
+                          <div style="display:flex;align-items:center;gap:6px;margin:4px 0">
+                            ${starsHtml(r.avgRating)}
+                            <span style="font-size:0.75rem;color:var(--text-muted);font-weight:600">(${r.count})</span>
+                          </div>
+                          <div style="font-size:0.78rem;color:var(--text-muted)">Остання від ${escapeHtml(r.username || '')}</div>
                         </div>
                       </div>`).join('')}
               </div>
@@ -88,9 +89,12 @@ export async function renderHome() {
       </div>
     </div>`;
 
-  // Wire review clicks
+  // Wire clicks
   container.querySelectorAll('[data-review-id]').forEach(el => {
     el.addEventListener('click', () => navigate(`review/${el.dataset.reviewId}`));
+  });
+  container.querySelectorAll('[data-title-id]').forEach(el => {
+    el.addEventListener('click', () => navigate(`title/${el.dataset.titleId}`));
   });
 
   // Search
@@ -101,7 +105,22 @@ export async function renderHome() {
   function doSearch() {
     const q = searchInput.value.trim().toLowerCase();
     if (!q) { resultsEl.style.display = 'none'; return; }
-    const found = allReviews.filter(r => r.title.toLowerCase().includes(q));
+    const groups = {};
+    allReviews.forEach(r => {
+      const qMatch = r.title.toLowerCase().includes(q);
+      if (qMatch) {
+        const tid = r.titleId || `manual_${r.title.toLowerCase().replace(/\s+/g, '_')}`;
+        if (!groups[tid]) groups[tid] = { ...r, titleId: tid, totalRating: 0, count: 0 };
+        groups[tid].totalRating += r.rating;
+        groups[tid].count += 1;
+      }
+    });
+
+    const found = Object.values(groups).map(g => ({
+      ...g,
+      avgRating: g.totalRating / g.count
+    }));
+
     if (found.length === 0) {
       resultsEl.style.display = 'block';
       resultsEl.innerHTML = `<div class="empty-state" style="padding:20px"><h3>Нічого не знайдено</h3></div>`;
@@ -109,18 +128,20 @@ export async function renderHome() {
     }
     resultsEl.style.display = 'block';
     resultsEl.innerHTML = found.slice(0, 12).map(r => `
-      <div class="review-card" style="margin-bottom:8px;cursor:pointer" data-review-id="${r.id}">
+      <div class="review-card" style="margin-bottom:8px;cursor:pointer" data-title-id="${r.titleId}">
         <div class="review-cover" style="width:50px">
           ${r.coverBase64 ? `<img src="${r.coverBase64}" alt="">` : '<div class="review-cover-placeholder" style="font-size:14px">📖</div>'}
         </div>
         <div class="review-body">
           <div class="review-title">${escapeHtml(r.title)}</div>
-          <div style="margin:4px 0">${starsHtml(r.rating, r.status === 'dropped')}</div>
-          <div style="font-size:0.78rem;color:var(--text-muted)">${escapeHtml(r.username || '')}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin:4px 0">
+            ${starsHtml(r.avgRating)}
+            <span style="font-size:0.75rem;color:var(--text-muted);font-weight:600">(${r.count})</span>
+          </div>
         </div>
       </div>`).join('');
-    resultsEl.querySelectorAll('[data-review-id]').forEach(el => {
-      el.addEventListener('click', () => navigate(`review/${el.dataset.reviewId}`));
+    resultsEl.querySelectorAll('[data-title-id]').forEach(el => {
+      el.addEventListener('click', () => navigate(`title/${el.dataset.titleId}`));
     });
   }
 

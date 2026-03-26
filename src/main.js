@@ -19,6 +19,7 @@ import { renderAccount } from './pages/account.js';
 import { renderProfile } from './pages/profile.js';
 import { renderReview } from './pages/review.js';
 import { renderAllReviews } from './pages/allReviews.js';
+import { renderTitle } from './pages/title.js';
 
 let routerStarted = false;
 
@@ -67,6 +68,7 @@ function initApp() {
   });
   defineRoute('profile/:id', ({ id }) => renderProfile({ id }));
   defineRoute('review/:id', ({ id }) => renderReview({ id }));
+  defineRoute('title/:id', ({ id }) => renderTitle({ id }));
   defineRoute('all-reviews/:userId', ({ userId }) => renderAllReviews({ userId }));
 
   renderHeader();

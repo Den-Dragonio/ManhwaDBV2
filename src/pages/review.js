@@ -129,18 +129,64 @@ export async function renderReview({ id }) {
 
   // Reactions
   if (currentUser) {
-    document.getElementById('rv-like-btn')?.addEventListener('click', async (e) => {
-      const btn = e.currentTarget;
-      btn.classList.toggle('liked'); // Optimistic toggle
-      await Reviews.toggleLike(id, currentUser.id);
-      renderReview({ id });
-    });
-    document.getElementById('rv-dislike-btn')?.addEventListener('click', async (e) => {
-      const btn = e.currentTarget;
-      btn.classList.toggle('disliked'); // Optimistic toggle
-      await Reviews.toggleDislike(id, currentUser.id);
-      renderReview({ id });
-    });
+    const likeBtn = document.getElementById('rv-like-btn');
+    const dislikeBtn = document.getElementById('rv-dislike-btn');
+
+    if (likeBtn && dislikeBtn) {
+      likeBtn.addEventListener('click', async () => {
+        const wasLiked = likeBtn.classList.contains('liked');
+        const wasDisliked = dislikeBtn.classList.contains('disliked');
+
+        // Optimistic UI
+        if (wasLiked) {
+          likeBtn.classList.remove('liked');
+          likeBtn.textContent = `👍 ${Math.max(0, likes.length - 1)}`;
+        } else {
+          likeBtn.classList.add('liked');
+          likeBtn.textContent = `👍 ${likes.length + 1}`;
+          if (wasDisliked) {
+            dislikeBtn.classList.remove('disliked');
+            dislikeBtn.textContent = `👎 ${Math.max(0, dislikes.length - 1)}`;
+          }
+        }
+
+        try {
+          await Reviews.toggleLike(id, currentUser.id);
+          renderReview({ id });
+        } catch (e) {
+          console.error("Like error:", e);
+          showToast('Помилка синхронізації', 'error');
+          renderReview({ id }); // Rollback
+        }
+      });
+
+      dislikeBtn.addEventListener('click', async () => {
+        const wasLiked = likeBtn.classList.contains('liked');
+        const wasDisliked = dislikeBtn.classList.contains('disliked');
+
+        // Optimistic UI
+        if (wasDisliked) {
+          dislikeBtn.classList.remove('disliked');
+          dislikeBtn.textContent = `👎 ${Math.max(0, dislikes.length - 1)}`;
+        } else {
+          dislikeBtn.classList.add('disliked');
+          dislikeBtn.textContent = `👎 ${dislikes.length + 1}`;
+          if (wasLiked) {
+            likeBtn.classList.remove('liked');
+            likeBtn.textContent = `👍 ${Math.max(0, likes.length - 1)}`;
+          }
+        }
+
+        try {
+          await Reviews.toggleDislike(id, currentUser.id);
+          renderReview({ id });
+        } catch (e) {
+          console.error("Dislike error:", e);
+          showToast('Помилка синхронізації', 'error');
+          renderReview({ id }); // Rollback
+        }
+      });
+    }
   }
 
   // Owner controls
@@ -192,20 +238,73 @@ async function loadComments(reviewId, currentUser) {
   el.innerHTML = topLevel.map(c => renderComment(c, replies, currentUser)).join('');
 
   // Wire comment events
-  el.querySelectorAll('[data-comment-like]').forEach(btn => {
+  el.querySelectorAll('.reaction-btn[data-comment-like]').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!currentUser) return;
-      btn.classList.toggle('liked'); // Optimistic
-      await Comments.toggleLike(btn.dataset.commentLike, currentUser.id);
-      await loadComments(reviewId, currentUser);
+      const commentId = btn.dataset.commentLike;
+      const dislikeBtn = el.querySelector(`.reaction-btn[data-comment-dislike="${commentId}"]`);
+      
+      const wasLiked = btn.classList.contains('liked');
+      const wasDisliked = dislikeBtn?.classList.contains('disliked');
+      const countSpan = btn; // btn text has the count
+
+      // Extract current count
+      let currentCount = parseInt(countSpan.textContent.split(' ')[1]) || 0;
+
+      if (wasLiked) {
+        btn.classList.remove('liked');
+        countSpan.textContent = `👍 ${Math.max(0, currentCount - 1)}`;
+      } else {
+        btn.classList.add('liked');
+        countSpan.textContent = `👍 ${currentCount + 1}`;
+        if (wasDisliked && dislikeBtn) {
+          dislikeBtn.classList.remove('disliked');
+          let dCount = parseInt(dislikeBtn.textContent.split(' ')[1]) || 0;
+          dislikeBtn.textContent = `👎 ${Math.max(0, dCount - 1)}`;
+        }
+      }
+
+      try {
+        await Comments.toggleLike(commentId, currentUser.id);
+        await loadComments(reviewId, currentUser);
+      } catch (e) {
+        console.error("Comment like error:", e);
+        await loadComments(reviewId, currentUser);
+      }
     });
   });
-  el.querySelectorAll('[data-comment-dislike]').forEach(btn => {
+
+  el.querySelectorAll('.reaction-btn[data-comment-dislike]').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!currentUser) return;
-      btn.classList.toggle('disliked'); // Optimistic
-      await Comments.toggleDislike(btn.dataset.commentDislike, currentUser.id);
-      await loadComments(reviewId, currentUser);
+      const commentId = btn.dataset.commentDislike;
+      const likeBtn = el.querySelector(`.reaction-btn[data-comment-like="${commentId}"]`);
+      
+      const wasLiked = likeBtn?.classList.contains('liked');
+      const wasDisliked = btn.classList.contains('disliked');
+      
+      let currentCount = parseInt(btn.textContent.split(' ')[1]) || 0;
+
+      if (wasDisliked) {
+        btn.classList.remove('disliked');
+        btn.textContent = `👎 ${Math.max(0, currentCount - 1)}`;
+      } else {
+        btn.classList.add('disliked');
+        btn.textContent = `👎 ${currentCount + 1}`;
+        if (wasLiked && likeBtn) {
+          likeBtn.classList.remove('liked');
+          let lCount = parseInt(likeBtn.textContent.split(' ')[1]) || 0;
+          likeBtn.textContent = `👍 ${Math.max(0, lCount - 1)}`;
+        }
+      }
+
+      try {
+        await Comments.toggleDislike(commentId, currentUser.id);
+        await loadComments(reviewId, currentUser);
+      } catch (e) {
+        console.error("Comment dislike error:", e);
+        await loadComments(reviewId, currentUser);
+      }
     });
   });
   el.querySelectorAll('[data-reply-btn]').forEach(btn => {
