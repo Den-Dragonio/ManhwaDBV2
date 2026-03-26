@@ -54,20 +54,22 @@ export async function renderHome() {
             <!-- Top Popular -->
             <div>
               <div class="section-title">🔥 Топ популярних</div>
-              ${topReviews.length === 0
-                ? `<div class="empty-state"><div class="empty-icon">📖</div><h3>Ще немає рецензій</h3></div>`
-                : topReviews.map((r, i) => `
-                    <div class="review-card" style="margin-bottom:10px;cursor:pointer" data-review-id="${r.id}">
-                      <div class="review-cover">
-                        ${r.coverBase64 ? `<img src="${r.coverBase64}" alt="">` : '<div class="review-cover-placeholder">📖</div>'}
-                      </div>
-                      <div class="review-body">
-                        <div style="font-size:0.75rem;color:var(--accent2);font-weight:700;margin-bottom:2px">#${i + 1}</div>
-                        <div class="review-title">${escapeHtml(r.title)}</div>
-                        <div style="margin:4px 0">${starsHtml(r.rating, r.status === 'dropped')}</div>
-                        <div style="font-size:0.78rem;color:var(--text-muted)">— ${escapeHtml(r.username || '')}</div>
-                      </div>
-                    </div>`).join('')}
+              <div class="scrollable-feed">
+                ${topReviews.length === 0
+                  ? `<div class="empty-state"><div class="empty-icon">📖</div><h3>Ще немає рецензій</h3></div>`
+                  : topReviews.map((r, i) => `
+                      <div class="review-card" style="margin-bottom:10px;cursor:pointer" data-review-id="${r.id}">
+                        <div class="review-cover">
+                          ${r.coverBase64 ? `<img src="${r.coverBase64}" alt="">` : '<div class="review-cover-placeholder">📖</div>'}
+                        </div>
+                        <div class="review-body">
+                          <div style="font-size:0.75rem;color:var(--accent2);font-weight:700;margin-bottom:2px">#${i + 1}</div>
+                          <div class="review-title">${escapeHtml(r.title)}</div>
+                          <div style="margin:4px 0">${starsHtml(r.rating, r.status === 'dropped')}</div>
+                          <div style="font-size:0.78rem;color:var(--text-muted)">— ${escapeHtml(r.username || '')}</div>
+                        </div>
+                      </div>`).join('')}
+              </div>
             </div>
           </div>
         </div>
@@ -75,10 +77,12 @@ export async function renderHome() {
         <!-- RIGHT: News Feed -->
         <div>
           <div class="section-title">📡 Стрічка новин</div>
-          <div class="news-feed">
-            ${newsItems.length === 0
-              ? `<div class="empty-state"><div class="empty-icon">📭</div><h3>Тут поки тихо</h3><p>Реєструйтесь та діліться рецензіями!</p></div>`
-              : newsItems.map(renderNewsItem).join('')}
+          <div class="scrollable-feed">
+            <div class="news-feed">
+              ${newsItems.length === 0
+                ? `<div class="empty-state"><div class="empty-icon">📭</div><h3>Тут поки тихо</h3><p>Реєструйтесь та діліться рецензіями!</p></div>`
+                : newsItems.map(renderNewsItem).join('')}
+            </div>
           </div>
         </div>
       </div>

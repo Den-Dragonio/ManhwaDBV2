@@ -68,11 +68,10 @@ export function starsHtml(rating, isDropped = false) {
 
   let r = Number(rating);
   if (!Number.isFinite(r)) r = 0;
-  // Snap to nearest 0.5 for proper half-star display
   r = Math.max(0, Math.min(10, Math.round(r * 2) / 2));
 
   let html = '<div class="stars-display">';
-  for (let i = 0.5; i <= 10; i += 1) {
+  for (let i = 1; i <= 10; i++) {
     const isFull = r >= i;
     const isHalf = !isFull && r >= (i - 0.5);
     
@@ -81,8 +80,8 @@ export function starsHtml(rating, isDropped = false) {
     } else if (isHalf) {
       html += `
         <span class="star half">
-          <svg class="star-base" viewBox="0 0 24 24"><path d="${path}"/></svg>
-          <span class="star-half-fill"><svg class="star-fill" viewBox="0 0 24 24"><path d="${path}"/></svg></span>
+          <svg viewBox="0 0 24 24"><path d="${path}"/></svg>
+          <span class="star-half-fill"><svg viewBox="0 0 24 24"><path d="${path}"/></svg></span>
         </span>`;
     } else {
       html += `<span class="star"><svg viewBox="0 0 24 24"><path d="${path}"/></svg></span>`;
@@ -97,7 +96,12 @@ export function formatTag(tag) {
   if (!tag) return '';
   let t = tag.trim();
   if (t.endsWith('+')) return t.slice(0, -1).trim() + ' 🔥';
-  if (t.endsWith('-')) return t.slice(0, -1).trim() + ' 🗑️';
+  if (t.endsWith('-')) {
+    const negEmojis = ['🗑️', '💩', '🤮', '📉', '👎', '🧊'];
+    // Deterministic choice based on tag string length/hash
+    const idx = Math.abs(t.length) % negEmojis.length;
+    return t.slice(0, -1).trim() + ' ' + negEmojis[idx];
+  }
   return t;
 }
 

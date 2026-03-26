@@ -129,11 +129,15 @@ export async function renderReview({ id }) {
 
   // Reactions
   if (currentUser) {
-    document.getElementById('rv-like-btn')?.addEventListener('click', async () => {
+    document.getElementById('rv-like-btn')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      btn.classList.toggle('liked'); // Optimistic toggle
       await Reviews.toggleLike(id, currentUser.id);
       renderReview({ id });
     });
-    document.getElementById('rv-dislike-btn')?.addEventListener('click', async () => {
+    document.getElementById('rv-dislike-btn')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      btn.classList.toggle('disliked'); // Optimistic toggle
       await Reviews.toggleDislike(id, currentUser.id);
       renderReview({ id });
     });
@@ -191,6 +195,7 @@ async function loadComments(reviewId, currentUser) {
   el.querySelectorAll('[data-comment-like]').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!currentUser) return;
+      btn.classList.toggle('liked'); // Optimistic
       await Comments.toggleLike(btn.dataset.commentLike, currentUser.id);
       await loadComments(reviewId, currentUser);
     });
@@ -198,6 +203,7 @@ async function loadComments(reviewId, currentUser) {
   el.querySelectorAll('[data-comment-dislike]').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!currentUser) return;
+      btn.classList.toggle('disliked'); // Optimistic
       await Comments.toggleDislike(btn.dataset.commentDislike, currentUser.id);
       await loadComments(reviewId, currentUser);
     });

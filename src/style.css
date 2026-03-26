@@ -251,22 +251,58 @@ body::before {
 .modal-tab.active { background: var(--bg-card); color: var(--text-primary); box-shadow: var(--shadow-card); }
 
 /* ======== STAR RATING ======== */
-.stars-display { display: inline-flex; align-items: center; gap: 4px; }
+.stars-display { 
+  display: inline-flex; 
+  align-items: center; 
+  gap: 4px; 
+}
+.rating-stars-wrapper {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 18px;
+  background: var(--bg-surface);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  transition: border-color 0.2s;
+}
+.rating-stars-wrapper:hover {
+  border-color: var(--border-accent);
+}
+
 .star {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   cursor: pointer;
   transition: transform 0.1s;
 }
-.star-lg { font-size: 38px; width: 38px; height: 38px; gap: 6px; }
-.star svg { width: 100%; height: 100%; display: block; fill: var(--text-muted); }
+.star-lg { 
+  width: 42px; 
+  height: 42px; 
+}
+.star svg { 
+  width: 100%; 
+  height: 100%; 
+  display: block; 
+  fill: var(--text-muted); 
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  transition: fill 0.2s, transform 0.1s;
+}
+.star:hover { transform: scale(1.1); }
 .star.full svg { fill: var(--star-color); }
-.star.half .star-half-fill { position: absolute; left: 0; top: 0; width: 50%; height: 100%; overflow: hidden; pointer-events: none; }
+.star.half .star-half-fill { 
+  position: absolute; 
+  left: 0; 
+  top: 0; 
+  width: 50%; 
+  height: 100%; 
+  overflow: hidden; 
+  pointer-events: none; 
+}
 .star.half .star-half-fill svg { fill: var(--star-color); }
 .crosses-display { display: flex; gap: 4px; }
 .cross-mark { color: var(--cross-color); font-size: 18px; font-weight: 800; }
@@ -275,7 +311,7 @@ body::before {
 .star-slider-preview { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .star-slider-label { font-size: 0.9rem; font-weight: 700; color: var(--accent2); min-width: 30px; }
 input[type="range"].star-slider {
-  -webkit-appearance: none; width: 100%; height: 6px;
+  -webkit-appearance: none; appearance: none; width: 100%; height: 6px;
   background: var(--bg-surface); border-radius: 3px; border: 1px solid var(--border);
   outline: none; cursor: pointer;
 }
@@ -365,8 +401,30 @@ input[type="range"].star-slider::-webkit-slider-thumb {
 .avatar-lg { width: 90px; height: 90px; font-size: 32px; }
 .avatar-xl { width: 120px; height: 120px; font-size: 42px; }
 
-/* ======== NEWS FEED ======== */
-.news-feed { display: flex; flex-direction: column; gap: 10px; }
+/* ======== NEWS FEED & POPULAR (SCROLLABLE) ======== */
+.scrollable-feed {
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 8px;
+  margin-right: -8px;
+}
+
+.news-feed { 
+  display: flex; 
+  flex-direction: column; 
+  gap: 10px; 
+}
+
+/* Beautiful Custom Scrollbar */
+.scrollable-feed::-webkit-scrollbar { width: 5px; }
+.scrollable-feed::-webkit-scrollbar-track { background: transparent; }
+.scrollable-feed::-webkit-scrollbar-thumb { 
+  background: var(--border); 
+  border-radius: 10px; 
+  transition: background 0.2s;
+}
+.scrollable-feed:hover::-webkit-scrollbar-thumb { background: var(--text-muted); }
+
 .news-item {
   display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px;
   border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border);

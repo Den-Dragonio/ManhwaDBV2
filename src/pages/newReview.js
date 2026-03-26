@@ -80,9 +80,9 @@ export async function renderNewReview(editId = null) {
             <button type="button" class="preset-tag preset-tag-fire" data-tag="Сюжет +">Сюжет 🔥</button>
             <button type="button" class="preset-tag preset-tag-fire" data-tag="Графіка +">Графіка 🔥</button>
             <button type="button" class="preset-tag preset-tag-fire" data-tag="Герої +">Герої 🔥</button>
-            <button type="button" class="preset-tag preset-tag-vomit" data-tag="Сюжет -">Сюжет 🗑️</button>
-            <button type="button" class="preset-tag preset-tag-vomit" data-tag="Графіка -">Графіка 🗑️</button>
-            <button type="button" class="preset-tag preset-tag-vomit" data-tag="Герої -">Герої 🗑️</button>
+            <button type="button" class="preset-tag preset-tag-vomit" data-tag="Сюжет -">Сюжет 💩</button>
+            <button type="button" class="preset-tag preset-tag-vomit" data-tag="Графіка -">Графіка 🤮</button>
+            <button type="button" class="preset-tag preset-tag-vomit" data-tag="Герої -">Герої 👎</button>
           </div>
         </div>
 
@@ -101,11 +101,11 @@ export async function renderNewReview(editId = null) {
         <div class="form-group" style="margin-bottom:24px;text-align:center">
           <label class="form-label" style="display:block;margin-bottom:12px">Оцінка <span style="color:var(--accent)">*</span></label>
           <div style="display:flex;justify-content:center">
-            <div id="interactive-stars-wrap" class="stars-display star-lg" style="cursor:pointer;padding:16px;background:var(--bg-surface);border-radius:16px;border:1px solid var(--border);user-select:none">
+            <div id="interactive-stars-wrap" class="rating-stars-wrapper" style="cursor:pointer;user-select:none">
                <!-- Rendered dynamically -->
             </div>
           </div>
-          <div id="rating-label" style="font-size:1.4rem;font-weight:800;color:var(--accent2);margin-top:12px">
+          <div id="rating-label" style="font-size:1.6rem;font-weight:900;color:var(--accent2);margin-top:12px;font-family:var(--font-display)">
             ${currentStatus === 'dropped' ? 'Кинута' : currentStatus === 'planned' ? '-' : currentRating + '/10'}
           </div>
         </div>
@@ -288,7 +288,7 @@ export async function renderNewReview(editId = null) {
 
     for (let i = 1; i <= 10; i++) {
       const star = document.createElement('span');
-      star.className = 'star';
+      star.className = 'star star-lg';
       
       const isFull = displayVal >= i;
       const isHalf = !isFull && displayVal >= (i - 0.5);
@@ -396,6 +396,7 @@ export async function renderNewReview(editId = null) {
 
     if (!title) { errEl.textContent = "Назва обов'язкова"; errEl.style.display = 'block'; return; }
     if (!chaptersStr || isNaN(chapters) || chapters < 0) { errEl.textContent = "Кількість глав обов'язкова (0 або більше)"; errEl.style.display = 'block'; return; }
+    if (date && new Date(date) > new Date()) { errEl.textContent = "Дата прочитання не може бути в майбутньому"; errEl.style.display = 'block'; return; }
 
     saveBtn.disabled = true; saveBtn.textContent = 'Збереження...';
     const data = { title, coverBase64: currentCover, text, rating, chapters, status, tags, date };
