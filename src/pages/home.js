@@ -3,7 +3,7 @@
 // ============================================================
 
 import { Reviews, Users, News, TopSites, Session } from '../store.js';
-import { starsHtml, timeAgo, escapeHtml, showLoader } from '../utils.js';
+import { starsHtml, timeAgo, escapeHtml, showLoader, formatTag } from '../utils.js';
 import { navigate } from '../router.js';
 
 export async function renderHome() {

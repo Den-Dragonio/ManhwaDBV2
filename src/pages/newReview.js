@@ -74,17 +74,15 @@ export async function renderNewReview(editId = null) {
           <label class="form-label">Теги (через кому)</label>
           <input class="input" type="text" id="review-tags" placeholder="екшн, романтика, фентезі..." value="${existing?.tags?.join(', ') || ''}">
           <div class="preset-tags-wrap" id="preset-tags-wrap" style="margin-top:10px">
-            <button type="button" class="preset-tag preset-tag-fapped" data-tag="fapped">fapped</button>
+            <button type="button" class="preset-tag preset-tag-fapped" data-tag="fapped">🔥 fapped</button>
             <button type="button" class="preset-tag" data-tag="Манхва">Манхва</button>
             <button type="button" class="preset-tag" data-tag="Манга">Манга</button>
-            <button type="button" class="preset-tag preset-tag-fire" data-tag="Сюжет +">Сюжет +</button>
-            <button type="button" class="preset-tag preset-tag-fire" data-tag="Графіка +">Графіка +</button>
-            <button type="button" class="preset-tag preset-tag-fire" data-tag="Герої +">Герої +</button>
-            <button type="button" class="preset-tag preset-tag-vomit" data-tag="Сюжет -">Сюжет -</button>
-            <button type="button" class="preset-tag preset-tag-vomit" data-tag="Графіка -">Графіка -</button>
-            <button type="button" class="preset-tag preset-tag-vomit" data-tag="Герої -">Герої -</button>
-            <button type="button" class="preset-tag" data-tag="Довга">Довга</button>
-            <button type="button" class="preset-tag" data-tag="Коротка">Коротка</button>
+            <button type="button" class="preset-tag preset-tag-fire" data-tag="Сюжет +">Сюжет 🔥</button>
+            <button type="button" class="preset-tag preset-tag-fire" data-tag="Графіка +">Графіка 🔥</button>
+            <button type="button" class="preset-tag preset-tag-fire" data-tag="Герої +">Герої 🔥</button>
+            <button type="button" class="preset-tag preset-tag-vomit" data-tag="Сюжет -">Сюжет 🗑️</button>
+            <button type="button" class="preset-tag preset-tag-vomit" data-tag="Графіка -">Графіка 🗑️</button>
+            <button type="button" class="preset-tag preset-tag-vomit" data-tag="Герої -">Герої 🗑️</button>
           </div>
         </div>
 
@@ -100,12 +98,14 @@ export async function renderNewReview(editId = null) {
         </div>
 
         <!-- Rating -->
-        <div class="form-group" style="margin-bottom:16px;text-align:center">
-          <label class="form-label">Оцінка <span style="color:var(--accent)">*</span></label>
-          <div id="interactive-stars-wrap" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;padding:12px;background:var(--bg-surface);border-radius:12px;border:1px solid var(--border)">
-             <!-- Rendered dynamically -->
+        <div class="form-group" style="margin-bottom:24px;text-align:center">
+          <label class="form-label" style="display:block;margin-bottom:12px">Оцінка <span style="color:var(--accent)">*</span></label>
+          <div style="display:flex;justify-content:center">
+            <div id="interactive-stars-wrap" class="stars-display star-lg" style="cursor:pointer;padding:16px;background:var(--bg-surface);border-radius:16px;border:1px solid var(--border);user-select:none">
+               <!-- Rendered dynamically -->
+            </div>
           </div>
-          <div id="rating-label" style="font-size:1.2rem;font-weight:700;color:var(--accent2);margin-top:8px">
+          <div id="rating-label" style="font-size:1.4rem;font-weight:800;color:var(--accent2);margin-top:12px">
             ${currentStatus === 'dropped' ? 'Кинута' : currentStatus === 'planned' ? '-' : currentRating + '/10'}
           </div>
         </div>
@@ -188,46 +188,70 @@ export async function renderNewReview(editId = null) {
     searchTimeout = setTimeout(async () => {
       try {
         resultsBox.style.display = 'block';
-        resultsBox.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted)">Шукаю в AniList...</div>';
-        const res = await fetch('https://graphql.anilist.co', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-          body: JSON.stringify({
-            query: `query ($search: String) { Page(page: 1, perPage: 8) { media(search: $search, type: MANGA) { id title { romaji english } coverImage { extraLarge } chapters } } }`,
-            variables: { search: q }
-          })
-        });
-        const data = await res.json();
-        const media = data.data.Page.media;
+        resultsBox.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted)">Пошук в AniList та H-Chan...</div>';
         
-        if (media.length === 0) {
+        const [aniRes, hchanRes] = await Promise.all([
+          fetch('https://graphql.anilist.co', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({
+              query: `query ($search: String) { Page(page: 1, perPage: 5) { media(search: $search, type: MANGA) { id title { romaji english } coverImage { extraLarge } chapters } } }`,
+              variables: { search: q }
+            })
+          }).then(r => r.json()).catch(() => ({ data: { Page: { media: [] } } })),
+          import('../utils.js').then(u => u.searchHChan(q)).catch(() => [])
+        ]);
+
+        const aniMedia = aniRes.data?.Page?.media || [];
+        const hchanMedia = hchanRes || [];
+        
+        if (aniMedia.length === 0 && hchanMedia.length === 0) {
           resultsBox.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted)">Нічого не знайдено</div>';
           return;
         }
 
-        resultsBox.innerHTML = media.map(m => {
+        let html = '';
+        aniMedia.forEach(m => {
           const t = m.title.english || m.title.romaji;
           const cover = m.coverImage?.extraLarge || '';
-          return `
+          html += `
             <div class="ac-item" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);transition:0.1s" data-title="${escapeHtml(t)}" data-cover="${cover}" data-chapters="${m.chapters || 0}">
               ${cover ? `<img src="${cover}" style="width:32px;height:45px;object-fit:cover;border-radius:4px">` : `<div style="width:32px;height:45px;background:var(--bg-hover);border-radius:4px"></div>`}
-              <div style="flex:1;font-weight:500;font-size:0.9rem">${escapeHtml(t)}</div>
-              ${m.chapters ? `<div style="font-size:0.75rem;color:var(--text-muted)">${m.chapters} глав</div>` : ''}
-            </div>
-          `;
-        }).join('');
+              <div style="flex:1">
+                <div style="font-weight:500;font-size:0.9rem">${escapeHtml(t)}</div>
+                <div style="font-size:0.7rem;color:var(--text-muted)">AniList ${m.chapters ? `• ${m.chapters} глав` : ''}</div>
+              </div>
+            </div>`;
+        });
+
+        hchanMedia.forEach(m => {
+          html += `
+            <div class="ac-item" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);transition:0.1s" data-title="${escapeHtml(m.title)}" data-url="${m.url}">
+              <div style="width:32px;height:45px;background:var(--accent-soft);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px">🔞</div>
+              <div style="flex:1">
+                <div style="font-weight:500;font-size:0.9rem">${escapeHtml(m.title)}</div>
+                <div style="font-size:0.7rem;color:var(--accent2)">H-Chan (Перехід на сайт)</div>
+              </div>
+            </div>`;
+        });
+
+        resultsBox.innerHTML = html;
 
         resultsBox.querySelectorAll('.ac-item').forEach(item => {
           item.addEventListener('mouseenter', () => item.style.background = 'var(--bg-hover)');
           item.addEventListener('mouseleave', () => item.style.background = '');
           item.addEventListener('click', () => {
+            if (item.dataset.url) {
+              window.open(item.dataset.url, '_blank');
+              return;
+            }
             titleInput.value = item.dataset.title;
             document.getElementById('review-chapters').value = item.dataset.chapters;
             if (item.dataset.cover) {
               currentCover = item.dataset.cover;
               refreshCoverUI();
-              showToast('Дані завантажено з AniList!', 'info');
             }
+            showToast('Дані завантажено!', 'info');
             resultsBox.style.display = 'none';
           });
         });
@@ -259,32 +283,41 @@ export async function renderNewReview(editId = null) {
     starsWrap.style.pointerEvents = 'auto';
     starsWrap.innerHTML = '';
     
-    // Ensure rating is integer to fit 10-star render
-    currentRating = Math.round(currentRating);
     const displayVal = hoverVal !== null ? hoverVal : currentRating;
-    
+    const path = 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z';
+
     for (let i = 1; i <= 10; i++) {
-      const char = i <= displayVal ? '★' : '☆';
-      const color = i <= displayVal ? 'var(--accent2)' : 'var(--text-muted)';
       const star = document.createElement('span');
-      star.textContent = char;
-      star.style.fontSize = '32px';
-      star.style.lineHeight = '1';
-      star.style.color = color;
-      star.style.transition = '0.1s transform, 0.1s color';
+      star.className = 'star';
       
-      star.addEventListener('mouseover', () => {
-        renderInteractiveStars(i);
-        star.style.transform = 'scale(1.2)';
+      const isFull = displayVal >= i;
+      const isHalf = !isFull && displayVal >= (i - 0.5);
+
+      if (isFull) star.classList.add('full');
+      else if (isHalf) star.classList.add('half');
+
+      star.innerHTML = `
+        <svg viewBox="0 0 24 24"><path d="${path}"/></svg>
+        ${isHalf ? `<span class="star-half-fill"><svg viewBox="0 0 24 24"><path d="${path}"/></svg></span>` : ''}
+      `;
+
+      star.addEventListener('mousemove', (e) => {
+        const rect = star.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const val = (x < rect.width / 2) ? i - 0.5 : i;
+        renderInteractiveStars(val);
       });
-      star.addEventListener('mouseleave', () => {
-         star.style.transform = 'scale(1)';
-      });
-      star.addEventListener('click', () => {
-        currentRating = i;
+
+      star.addEventListener('click', (e) => {
+        const rect = star.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        currentRating = (x < rect.width / 2) ? i - 0.5 : i;
+        // Minimum rating 1 enforcement
+        if (currentRating < 1) currentRating = 1;
         renderInteractiveStars();
         ratingLabel.textContent = currentRating + '/10';
       });
+
       starsWrap.appendChild(star);
     }
   }

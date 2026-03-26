@@ -3,7 +3,7 @@
 // ============================================================
 
 import { Reviews, Users, Comments, Session } from '../store.js';
-import { starsHtml, avatarHtml, timeAgo, formatDate, escapeHtml, showToast, showLoader, fetchX9QualityByTitle } from '../utils.js';
+import { starsHtml, avatarHtml, timeAgo, formatDate, escapeHtml, showToast, showLoader, fetchX9QualityByTitle, formatTag } from '../utils.js';
 import { navigate } from '../router.js';
 
 export async function renderReview({ id }) {
@@ -67,7 +67,7 @@ export async function renderReview({ id }) {
               <div class="x9-quality-votes" id="x9-rating-votes">-</div>
             </div>` : ''}
           </div>
-          ${review.tags?.length ? `<div class="review-tags">${review.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+          ${review.tags?.length ? `<div class="review-tags">${review.tags.map(t => `<span class="tag">${escapeHtml(formatTag(t))}</span>`).join('')}</div>` : ''}
           ${review.updatedAt ? `<span class="edited-badge">Редаговано ${timeAgo(review.updatedAt)}</span>` : ''}
 
           <!-- Reactions -->

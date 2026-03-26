@@ -3,7 +3,7 @@
 // ============================================================
 
 import { Reviews, Users, Session } from '../store.js';
-import { starsHtml, avatarHtml, timeAgo, formatDate, escapeHtml, showLoader } from '../utils.js';
+import { starsHtml, avatarHtml, timeAgo, formatDate, escapeHtml, showLoader, formatTag } from '../utils.js';
 import { navigate } from '../router.js';
 
 export async function renderAllReviews({ userId }) {
@@ -181,8 +181,8 @@ function renderGrid(reviews) {
           <span style="color:var(--text-muted);font-size:0.75rem">📚 ${r.chapters || 0} глав</span>
         </div>
         <div class="review-title">${escapeHtml(r.title)}</div>
-        <div style="margin:6px 0">${r.status === 'planned' ? '<span style="color:var(--text-muted);font-size:0.8rem">Ще не оцінено</span>' : starsHtml(r.rating, isDropped)}</div>
-        ${r.tags?.length ? `<div class="review-tags">${r.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+        <div style="margin:6px 0">${r.status === 'planned' ? '<span style="color:var(--text-muted);font-size:0.8rem">Ще не оцінено</span>' : starsHtml(r.rating, r.status === 'dropped')}</div>
+        ${r.tags?.length ? `<div class="review-tags">${r.tags.map(t => `<span class="tag">${escapeHtml(formatTag(t))}</span>`).join('')}</div>` : ''}
         ${r.text ? `<div class="review-text-preview" style="margin-top:6px">${escapeHtml(r.text)} <span style="color:var(--accent)">...</span></div>` : ''}
       </div>
     </div>`;

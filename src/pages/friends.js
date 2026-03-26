@@ -134,7 +134,6 @@ export async function renderFriends() {
 
     document.getElementById('add-friend-btn')?.addEventListener('click', async () => {
       await Friends.send(currentUser.id, found.id);
-      await News.add('friend', currentUser.id, found.id, { username: currentUser.username });
       showToast(`Запит надіслано ${found.username}`, 'success');
       await renderFriends();
     });

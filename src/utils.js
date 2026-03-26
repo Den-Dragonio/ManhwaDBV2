@@ -68,33 +68,65 @@ export function starsHtml(rating, isDropped = false) {
 
   let r = Number(rating);
   if (!Number.isFinite(r)) r = 0;
-  // Clamp to [0..10] and keep a minimum visible score for any non-zero rating.
-  r = Math.max(0, Math.min(10, r));
-  if (r > 0 && r < 1) r = 1;
-
-  // Snap to nearest 0.5 to render proper half-stars.
-  r = Math.round(r * 2) / 2;
-
-  const full = Math.floor(r);
-  const half = r - full >= 0.5;
-  const empty = Math.max(0, 10 - full - (half ? 1 : 0));
+  // Snap to nearest 0.5 for proper half-star display
+  r = Math.max(0, Math.min(10, Math.round(r * 2) / 2));
 
   let html = '<div class="stars-display">';
-  for (let i = 0; i < full; i++) {
-    html += `<span class="star full"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"/></svg></span>`;
-  }
-  if (half) {
-    html += `
-      <span class="star half">
-        <svg class="star-base" viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"/></svg>
-        <span class="star-half-fill" aria-hidden="true"><svg class="star-fill" viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"/></svg></span>
-      </span>`;
-  }
-  for (let i = 0; i < empty; i++) {
-    html += `<span class="star"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"/></svg></span>`;
+  for (let i = 0.5; i <= 10; i += 1) {
+    const isFull = r >= i;
+    const isHalf = !isFull && r >= (i - 0.5);
+    
+    if (isFull) {
+      html += `<span class="star full"><svg viewBox="0 0 24 24"><path d="${path}"/></svg></span>`;
+    } else if (isHalf) {
+      html += `
+        <span class="star half">
+          <svg class="star-base" viewBox="0 0 24 24"><path d="${path}"/></svg>
+          <span class="star-half-fill"><svg class="star-fill" viewBox="0 0 24 24"><path d="${path}"/></svg></span>
+        </span>`;
+    } else {
+      html += `<span class="star"><svg viewBox="0 0 24 24"><path d="${path}"/></svg></span>`;
+    }
   }
   html += '</div>';
   return html;
+}
+
+// Replaces +/- symbols with emojis for polished display
+export function formatTag(tag) {
+  if (!tag) return '';
+  let t = tag.trim();
+  if (t.endsWith('+')) return t.slice(0, -1).trim() + ' 🔥';
+  if (t.endsWith('-')) return t.slice(0, -1).trim() + ' 🗑️';
+  return t;
+}
+
+export async function searchHChan(query) {
+  try {
+    const res = await fetch('https://x9.h-chan.me/engine/ajax/search.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ query: query.trim() }),
+    });
+    const html = await res.text();
+    // Parse result items from HTML snippet
+    const items = [];
+    const regex = /href="([^"]*\/manga\/(\d+)-([^"]+)\.html)".*?<span class="searchdesc">([^<]+)<\/span>/gi;
+    let m;
+    while ((m = regex.exec(html)) !== null) {
+      items.push({
+        id: m[2],
+        url: m[1].startsWith('http') ? m[1] : 'https://x9.h-chan.me' + m[1],
+        title: m[3].replace(/-/g, ' '),
+        desc: m[4],
+        source: 'h-chan'
+      });
+    }
+    return items;
+  } catch (e) {
+    console.warn('H-Chan search failed:', e);
+    return [];
+  }
 }
 
 // Best-effort rating widget for x9.h-chan.me (may be blocked by CORS).
