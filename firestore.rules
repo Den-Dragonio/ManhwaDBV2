@@ -24,8 +24,6 @@ service cloud.firestore {
       allow create: if request.auth != null;
       allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
       
-      // ИСПРАВЛЕНИЕ: разрешаем обновление, если пользователь - владелец 
-      // ИЛИ если он только добавляет/удаляет свой лайк/дизлайк
       allow update: if request.auth != null && (
         resource.data.userId == request.auth.uid || 
         (request.resource.data.userId == resource.data.userId && 
@@ -38,7 +36,6 @@ service cloud.firestore {
       allow create: if request.auth != null;
       allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
       
-      // ИСПРАВЛЕНИЕ: разрешаем обновление для лайков/дизлайков
       allow update: if request.auth != null && (
         resource.data.userId == request.auth.uid || 
         (request.resource.data.userId == resource.data.userId)
@@ -51,21 +48,22 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && request.auth.uid in resource.data.users;
     }
 
-    // 7. Новости и Плейлисты
+    // 7. Новости (уведомления о комментариях и др.)
     match /news/{id} {
       allow create: if request.auth != null;
       allow update: if request.auth != null;
     }
 
-    // 8. Rejections (decline counter for friend requests)
+    // 8. Отклонения запросов дружбы (счётчик для блокировки)
     match /rejections/{id} {
       allow create, read: if request.auth != null;
       allow update, delete: if request.auth != null;
     }
 
+    // 9. Плейлисты
     match /playlists/{id} {
       allow create: if request.auth != null;
-      allow update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || request.auth.uid == userId);
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
   }
 }
