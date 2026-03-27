@@ -32,16 +32,18 @@ export async function renderAllReviews({ userId }) {
       </div>
 
       <!-- Sorting Bar -->
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;align-items:center" id="sort-controls">
-        <div style="font-size:0.9rem;color:var(--text-muted);margin-right:8px">Сортувати:</div>
-        <button class="btn btn-secondary btn-sm sort-btn active" data-sort="rating" data-dir="desc">⭐ Оцінка ⬇️</button>
-        <button class="btn btn-secondary btn-sm sort-btn" data-sort="date" data-dir="desc">📅 Дата ⬇️</button>
-        <button class="btn btn-secondary btn-sm sort-btn" data-sort="status" data-dir="desc">📌 Статус ⬇️</button>
-        <button class="btn btn-secondary btn-sm sort-btn" data-sort="chapters" data-dir="desc">📚 Глави ⬇️</button>
-        <select class="input" id="tag-filter-select" style="max-width:200px;margin-left:auto;padding:6px 10px;height:auto">
+      <div class="all-reviews-controls" id="sort-controls">
+        <div style="font-size:0.85rem;color:var(--text-muted);width:100%">Сортувати:</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-secondary btn-sm sort-btn active" data-sort="rating" data-dir="desc">⭐ Оцінка ⬇️</button>
+          <button class="btn btn-secondary btn-sm sort-btn" data-sort="date" data-dir="desc">📅 Дата ⬇️</button>
+          <button class="btn btn-secondary btn-sm sort-btn" data-sort="status" data-dir="desc">📌 Статус ⬇️</button>
+          <button class="btn btn-secondary btn-sm sort-btn" data-sort="chapters" data-dir="desc">📚 Глави ⬇️</button>
+        </div>
+        <select class="input" id="tag-filter-select" style="width:100%;padding:8px 10px;height:auto">
           <!-- Tag options injected dynamically -->
         </select>
-        <input class="input" id="all-reviews-search" placeholder="🔍 Пошук..." style="max-width:220px;margin-left:8px">
+        <input class="input" id="all-reviews-search" placeholder="🔍 Пошук..." style="width:100%">
       </div>
 
       <div id="all-reviews-grid" style="display:flex;flex-direction:column;gap:10px">
@@ -170,17 +172,17 @@ function renderGrid(reviews) {
   
   return reviews.map(r => {
     const isDropped = r.status === 'dropped' || r.status === 'planned';
-    return `<div class="review-card" style="cursor:pointer" data-review-id="${r.id}">
-      <div class="review-cover" style="width:80px">
+    return `<div class="review-card all-reviews-card" style="cursor:pointer" data-review-id="${r.id}">
+      <div class="review-cover">
         ${r.coverBase64 ? `<img src="${r.coverBase64}" alt="${escapeHtml(r.title)}">` : '<div class="review-cover-placeholder">📖</div>'}
       </div>
       <div class="review-body">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+        <div class="review-title">${escapeHtml(r.title)}</div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
           <div class="review-date">${r.date ? formatDate(r.date) : timeAgo(r.createdAt)}</div>
           <span class="status-badge ${statusClass[r.status] || ''}" style="font-size:0.7rem">${statusLabels[r.status] || ''}</span>
           <span style="color:var(--text-muted);font-size:0.75rem">📚 ${r.chapters || 0} глав</span>
         </div>
-        <div class="review-title">${escapeHtml(r.title)}</div>
         <div style="margin:6px 0">${r.status === 'planned' ? '<span style="color:var(--text-muted);font-size:0.8rem">Ще не оцінено</span>' : starsHtml(r.rating, r.status === 'dropped')}</div>
         ${r.tags?.length ? `<div class="review-tags">${r.tags.map(t => `<span class="tag">${escapeHtml(formatTag(t))}</span>`).join('')}</div>` : ''}
         ${r.text ? `<div class="review-text-preview" style="margin-top:6px">${escapeHtml(r.text)} <span style="color:var(--accent)">...</span></div>` : ''}

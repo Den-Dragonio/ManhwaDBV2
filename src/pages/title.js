@@ -49,8 +49,8 @@ export async function renderTitle({ id }) {
           <div class="title-meta-pills" style="display:flex;flex-wrap:wrap;gap:8px">
             <span class="pill">📚 ${latest.chapters || 0} глав</span>
             <span class="pill">📈 ${count} відгуків</span>
-            <button class="btn btn-primary btn-sm" id="write-review-btn" style="margin-left:auto;box-shadow:var(--shadow-float)">✍️ Написати рецензію</button>
           </div>
+          <button class="btn btn-primary" id="write-review-btn" style="width:100%;margin-top:16px;box-shadow:var(--shadow-float)">✍️ Написати рецензію</button>
           
           <div class="title-rating-section">
             <div class="title-rating-main">

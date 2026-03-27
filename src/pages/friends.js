@@ -19,7 +19,6 @@ export async function renderFriends() {
     Friends.sentBy(currentUser.id),
   ]);
 
-  // Resolve other users for each relationship
   const resolveFriendUser = async (f) => {
     const otherId = f.requesterId === currentUser.id ? f.receiverId : f.requesterId;
     const other = await Users.byId(otherId);
@@ -30,7 +29,8 @@ export async function renderFriends() {
     Promise.all(myFriends.map(resolveFriendUser)),
     Promise.all(pending.map(async f => {
       const other = await Users.byId(f.requesterId);
-      return { ...f, otherUser: other };
+      const declineCount = await Friends.getDeclineCount(f.requesterId, currentUser.id);
+      return { ...f, otherUser: other, declineCount };
     })),
     Promise.all(sent.map(async f => {
       const other = await Users.byId(f.receiverId);
@@ -65,6 +65,7 @@ export async function renderFriends() {
                 </div>
                 <button class="btn btn-primary btn-sm" data-accept="${f.requesterId}">✅ Прийняти</button>
                 <button class="btn btn-danger btn-sm" data-decline="${f.requesterId}">❌</button>
+                ${f.declineCount >= 2 ? `<button class="btn btn-sm" data-block="${f.requesterId}" style="background:#5a1a1a;border:1px solid #e63946;color:#ff6b6b">🔒 Блок</button>` : ''}
               </div>`).join('')}
           </div>
         </div>` : ''}
@@ -121,10 +122,17 @@ export async function renderFriends() {
       return;
     }
     const rel = await Friends.between(currentUser.id, found.id);
+    const isBlockedByMe = Users.isBlocked(found.id);
     let btn = '';
-    if (!rel) btn = `<button class="btn btn-primary btn-sm" id="add-friend-btn" data-uid="${found.id}">➕ Надіслати запит</button>`;
-    else if (rel.status === 'pending') btn = `<span class="friend-status friend-pending">Запит надіслано</span>`;
-    else btn = `<span class="friend-status friend-accepted">Вже друзі ✅</span>`;
+    if (isBlockedByMe) {
+      btn = `<button class="btn btn-sm" id="unblock-btn" data-uid="${found.id}" style="background:#5a1a1a;border:1px solid #e63946;color:#ff6b6b">🔓 Розблокувати</button>`;
+    } else if (!rel) {
+      btn = `<button class="btn btn-primary btn-sm" id="add-friend-btn" data-uid="${found.id}">➕ Надіслати запит</button>`;
+    } else if (rel.status === 'pending') {
+      btn = `<span class="friend-status friend-pending">Запит надіслано</span>`;
+    } else {
+      btn = `<span class="friend-status friend-accepted">Вже друзі ✅</span>`;
+    }
 
     searchResult.innerHTML = `<div class="friend-item">
       ${avatarHtml(found, 'sm')}
@@ -133,8 +141,18 @@ export async function renderFriends() {
     </div>`;
 
     document.getElementById('add-friend-btn')?.addEventListener('click', async () => {
-      await Friends.send(currentUser.id, found.id);
+      const result = await Friends.send(currentUser.id, found.id);
+      if (result === 'blocked') {
+        showToast('Цей користувач вас заблокував', 'warning');
+        return;
+      }
       showToast(`Запит надіслано ${found.username}`, 'success');
+      await renderFriends();
+    });
+
+    document.getElementById('unblock-btn')?.addEventListener('click', async () => {
+      await Users.unblock(currentUser.id, found.id);
+      showToast(`${found.username} розблоковано`, 'success');
       await renderFriends();
     });
   };
@@ -142,7 +160,7 @@ export async function renderFriends() {
   searchBtn.addEventListener('click', doSearch);
   searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
 
-  // Accept / Decline
+  // Accept
   container.querySelectorAll('[data-accept]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const friendId = btn.dataset.accept;
@@ -153,12 +171,32 @@ export async function renderFriends() {
       await renderFriends();
     });
   });
+
+  // Decline (with counter)
   container.querySelectorAll('[data-decline]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      await Friends.remove(btn.dataset.decline, currentUser.id);
+      const requesterId = btn.dataset.decline;
+      const count = await Friends.decline(requesterId, currentUser.id);
+      if (count >= 2) {
+        showToast('Запит відхилено. Ви можете заблокувати цього користувача.', 'warning');
+      } else {
+        showToast('Запит відхилено', 'info');
+      }
       await renderFriends();
     });
   });
+
+  // Block
+  container.querySelectorAll('[data-block]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const targetId = btn.dataset.block;
+      if (!window.confirm('Заблокувати цього користувача? Він не зможе надсилати вам запити, коментувати та ставити лайки.')) return;
+      await Users.block(currentUser.id, targetId);
+      showToast('Користувача заблоковано 🔒', 'warning');
+      await renderFriends();
+    });
+  });
+
   container.querySelectorAll('[data-cancel]').forEach(btn => {
     btn.addEventListener('click', async () => {
       await Friends.remove(currentUser.id, btn.dataset.cancel);

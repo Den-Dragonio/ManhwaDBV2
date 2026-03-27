@@ -4,11 +4,12 @@
 
 import './style.css';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from './firebase.js';
+import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { auth, db } from './firebase.js';
 import { Users, Session } from './store.js';
 import { renderHeader } from './components/header.js';
 import { defineRoute, startRouter, onBeforeNavigate } from './router.js';
-import { showLoader } from './utils.js';
+import { showLoader, showToast } from './utils.js';
 
 // ---- Page imports ----
 import { renderHome } from './pages/home.js';
@@ -100,4 +101,33 @@ onAuthStateChanged(auth, async (firebaseUser) => {
   } else {
     renderHeader();
   }
+
+  // Check for unread comment notifications
+  if (firebaseUser) {
+    checkCommentNotifications(firebaseUser.uid).catch(console.error);
+  }
 });
+
+async function checkCommentNotifications(userId) {
+  try {
+    const q = query(
+      collection(db, 'news'),
+      where('type', '==', 'new_comment'),
+      where('targetId', '==', userId),
+      where('read', '==', false)
+    );
+    const snap = await getDocs(q);
+    snap.docs.forEach(d => {
+      const data = d.data();
+      showToast(
+        `💬 ${data.commenterName || 'Хтось'} прокоментував вашу рецензію "${data.reviewTitle || '...'}"`,
+        'info',
+        { persistent: true }
+      );
+      // Mark as read
+      updateDoc(doc(db, 'news', d.id), { read: true }).catch(console.error);
+    });
+  } catch (e) {
+    console.warn('Could not check comment notifications:', e);
+  }
+}

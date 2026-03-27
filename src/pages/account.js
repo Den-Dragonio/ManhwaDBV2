@@ -77,7 +77,6 @@ export async function renderAccountPage(userId, isOwn = false) {
       <div style="margin-bottom:32px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
           <div class="section-title" style="margin:0">📚 Останні рецензії</div>
-          ${reviews.length > 6 ? `<span class="see-all-link" id="see-all-btn">Дивитися всі →</span>` : ''}
         </div>
         ${reviews.length === 0
           ? `<div class="empty-state"><div class="empty-icon">📖</div><h3>Ще немає рецензій</h3>${isOwn ? `<p><button class="btn btn-primary btn-sm" id="add-first-review">✍️ Написати першу</button></p>` : ''}</div>`

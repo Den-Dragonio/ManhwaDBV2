@@ -195,15 +195,19 @@ export function avatarHtml(user, size = 'md') {
   return `<div class="avatar avatar-${size}">${initials}</div>`;
 }
 
-export function showToast(msg, type = 'info') {
+export function showToast(msg, type = 'info', opts = {}) {
   let container = document.querySelector('.toast-container');
   if (!container) { container = document.createElement('div'); container.className = 'toast-container'; document.body.appendChild(container); }
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
-  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
-  toast.innerHTML = `<span>${icons[type] || ''}</span><span>${escapeHtml(msg)}</span>`;
+  const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '🚫' };
+  toast.innerHTML = `<span>${icons[type] || ''}</span><span style="flex:1">${escapeHtml(msg)}</span>${opts.persistent ? '<button class="toast-close">✕</button>' : ''}`;
   container.appendChild(toast);
-  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 3500);
+  if (opts.persistent) {
+    toast.querySelector('.toast-close').addEventListener('click', () => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); });
+  } else {
+    setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 3500);
+  }
 }
 
 export function showLoader(container) {

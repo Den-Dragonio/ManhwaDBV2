@@ -61,13 +61,32 @@ export const Users = {
   save: async (user) => {
     const { id, ...data } = user;
     await setDoc(doc(db, 'users', id), data, { merge: true });
-    // Update cached profile if it's the current user
     if (auth.currentUser?.uid === id) {
       Session.setProfile({ ...(_currentUserProfile || {}), ...data, id });
     }
   },
   delete: async (uid) => {
     await deleteDoc(doc(db, 'users', uid));
+  },
+  block: async (myId, targetId) => {
+    await updateDoc(doc(db, 'users', myId), { blockedUsers: arrayUnion(targetId) });
+    // Update local cache
+    if (_currentUserProfile && _currentUserProfile.id === myId) {
+      _currentUserProfile.blockedUsers = [...(_currentUserProfile.blockedUsers || []), targetId];
+    }
+  },
+  unblock: async (myId, targetId) => {
+    await updateDoc(doc(db, 'users', myId), { blockedUsers: arrayRemove(targetId) });
+    if (_currentUserProfile && _currentUserProfile.id === myId) {
+      _currentUserProfile.blockedUsers = (_currentUserProfile.blockedUsers || []).filter(u => u !== targetId);
+    }
+  },
+  isBlocked: (userId) => {
+    return (_currentUserProfile?.blockedUsers || []).includes(userId);
+  },
+  isBlockedBy: async (ownerId, myId) => {
+    const owner = await Users.byId(ownerId);
+    return (owner?.blockedUsers || []).includes(myId);
   },
 };
 
@@ -256,6 +275,9 @@ export const Friends = {
     return normalizeDocs(snap);
   },
   send: async (requesterId, receiverId) => {
+    // Check if sender is blocked
+    const blocked = await Users.isBlockedBy(receiverId, requesterId);
+    if (blocked) return 'blocked';
     const existing = await Friends.between(requesterId, receiverId);
     if (existing) return false;
     const id = friendDocId(requesterId, receiverId);
@@ -268,6 +290,26 @@ export const Friends = {
   },
   accept: async (requesterId, receiverId) => {
     await updateDoc(doc(db, 'friends', friendDocId(requesterId, receiverId)), { status: 'accepted' });
+    // Reset rejection counter
+    try { await deleteDoc(doc(db, 'rejections', friendDocId(requesterId, receiverId))); } catch(e) {}
+  },
+  decline: async (requesterId, receiverId) => {
+    // Remove the friend request
+    await deleteDoc(doc(db, 'friends', friendDocId(requesterId, receiverId)));
+    // Increment rejection counter
+    const rejId = friendDocId(requesterId, receiverId);
+    const rejRef = doc(db, 'rejections', rejId);
+    const rejSnap = await getDoc(rejRef);
+    let count = 1;
+    if (rejSnap.exists()) {
+      count = (rejSnap.data().count || 0) + 1;
+    }
+    await setDoc(rejRef, { users: [requesterId, receiverId], count, lastDeclinedBy: receiverId, updatedAt: new Date().toISOString() });
+    return count;
+  },
+  getDeclineCount: async (a, b) => {
+    const snap = await getDoc(doc(db, 'rejections', friendDocId(a, b)));
+    return snap.exists() ? (snap.data().count || 0) : 0;
   },
   remove: async (a, b) => {
     await deleteDoc(doc(db, 'friends', friendDocId(a, b)));

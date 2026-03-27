@@ -2,7 +2,7 @@
 // pages/review.js — Full review detail page (async Firestore)
 // ============================================================
 
-import { Reviews, Users, Comments, Session } from '../store.js';
+import { Reviews, Users, Comments, Session, News } from '../store.js';
 import { starsHtml, avatarHtml, timeAgo, formatDate, escapeHtml, showToast, showLoader, fetchX9QualityByTitle, formatTag } from '../utils.js';
 import { navigate } from '../router.js';
 
@@ -134,6 +134,9 @@ export async function renderReview({ id }) {
 
     if (likeBtn && dislikeBtn) {
       likeBtn.addEventListener('click', async () => {
+        // Check if blocked
+        const blocked = await Users.isBlockedBy(review.userId, currentUser.id);
+        if (blocked) { showToast('Ви заблоковані цим користувачем', 'warning'); return; }
         const wasLiked = likeBtn.classList.contains('liked');
         const wasDisliked = dislikeBtn.classList.contains('disliked');
 
@@ -161,6 +164,9 @@ export async function renderReview({ id }) {
       });
 
       dislikeBtn.addEventListener('click', async () => {
+        // Check if blocked
+        const blocked = await Users.isBlockedBy(review.userId, currentUser.id);
+        if (blocked) { showToast('Ви заблоковані цим користувачем', 'warning'); return; }
         const wasLiked = likeBtn.classList.contains('liked');
         const wasDisliked = dislikeBtn.classList.contains('disliked');
 
@@ -210,9 +216,21 @@ export async function renderReview({ id }) {
   document.getElementById('post-comment-btn')?.addEventListener('click', async () => {
     const text = document.getElementById('new-comment-text').value.trim();
     if (!text) return;
+    // Check if review owner blocked the commenter
+    const blocked = await Users.isBlockedBy(review.userId, currentUser.id);
+    if (blocked) { showToast('Ви заблоковані цим користувачем', 'warning'); return; }
     const btn = document.getElementById('post-comment-btn');
     btn.disabled = true; btn.textContent = '...';
     await Comments.create(id, currentUser.id, text);
+    // Notify review owner about new comment
+    if (review.userId !== currentUser.id) {
+      await News.add('new_comment', currentUser.id, review.userId, {
+        reviewId: id,
+        reviewTitle: review.title,
+        commenterName: currentUser.username,
+        read: false,
+      }).catch(console.error);
+    }
     document.getElementById('new-comment-text').value = '';
     btn.disabled = false; btn.textContent = 'Надіслати';
     await loadComments(id, currentUser);
