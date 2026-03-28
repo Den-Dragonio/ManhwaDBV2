@@ -371,3 +371,22 @@ export const Playlists = {
     await deleteDoc(doc(db, 'playlists', id));
   },
 };
+
+// ---- MANGA METADATA (from scraper) ----
+export const MangaMetadata = {
+  byId: async (titleId) => {
+    if (!titleId) return null;
+    const snap = await getDoc(doc(db, 'manga_metadata', titleId));
+    return normalize(snap);
+  },
+  byTitle: async (title) => {
+    if (!title) return null;
+    // Slugify logic consistent with scraper.py
+    let slug = title.toLowerCase().trim().replace(/\s+/g, '_');
+    slug = slug.replace(/[^a-z0-9_]/gi, '');
+    const manualId = `manual_${slug}`;
+    const snap = await getDoc(doc(db, 'manga_metadata', manualId));
+    return normalize(snap);
+  }
+};
+

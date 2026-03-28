@@ -108,7 +108,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
         <div class="form-group" style="margin-bottom:16px">
           <label class="form-label">Статус <span style="color:var(--accent)">*</span></label>
           <select class="select" id="review-status">
-            <option value="done" ${currentStatus === 'done' ? 'selected' : ''}>✅ Завершено</option>
+            <option value="done" ${currentStatus === 'done' ? 'selected' : ''}>✅ Прочитано</option>
             <option value="reading" ${currentStatus === 'reading' ? 'selected' : ''}>📖 Читаю</option>
             <option value="planned" ${currentStatus === 'planned' ? 'selected' : ''}>⏳ В планах (Прочитати потім)</option>
             <option value="dropped" ${currentStatus === 'dropped' ? 'selected' : ''}>❌ Кинув</option>
@@ -215,13 +215,13 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
   titleInput.addEventListener('input', () => {
     const q = titleInput.value.trim();
     if (q.length < 2) { resultsBox.style.display = 'none'; return; }
-    
+
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(async () => {
       try {
         resultsBox.style.display = 'block';
         resultsBox.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted)">Шукаємо в базі та AniList...</div>';
-        
+
         // Parallel fetching
         const [firestoreRes, aniRes, hchanRes] = await Promise.all([
           // 1. Efficient Firestore prefix query (Optimization requested)
@@ -266,7 +266,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
         const dbItems = firestoreRes || [];
         const aniMedia = aniRes.data?.Page?.media || [];
         const hchanMedia = hchanRes || [];
-        
+
         if (dbItems.length === 0 && aniMedia.length === 0 && hchanMedia.length === 0) {
           resultsBox.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted)">Нічого не знайдено</div>';
           return;
@@ -360,14 +360,14 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
           titleInput.value = t.title;
           titleInput.readOnly = true;
           titleInput.style.background = 'var(--bg-hover)';
-          
+
           selectedTitleId = preSelectedTitleId;
           document.getElementById('review-chapters').value = t.chapters || 0;
-          if (t.coverBase64) { 
-            currentCover = t.coverBase64; 
-            refreshCoverUI(); 
+          if (t.coverBase64) {
+            currentCover = t.coverBase64;
+            refreshCoverUI();
           }
-          
+
           // Add a "Change" button next to the title if they want to switch
           const changeBtn = document.createElement('button');
           changeBtn.className = 'btn btn-ghost btn-xs';
@@ -404,14 +404,14 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
     }
     starsWrap.style.pointerEvents = 'auto';
     starsWrap.innerHTML = '';
-    
+
     const displayVal = hoverVal !== null ? hoverVal : currentRating;
     const path = 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z';
 
     for (let i = 1; i <= 10; i++) {
       const star = document.createElement('span');
       star.className = 'star star-lg';
-      
+
       const isFull = displayVal >= i;
       const isHalf = !isFull && displayVal >= (i - 0.5);
 
@@ -535,7 +535,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
     }
 
     saveBtn.disabled = true; saveBtn.textContent = 'Збереження...';
-    
+
     // Final TitleId determination
     const titleId = selectedTitleId || `manual_${title.toLowerCase().replace(/\s+/g, '_')}`;
 

@@ -47,7 +47,7 @@ export async function renderAccountPage(userId, isOwn = false) {
           ${user.bio ? `<div class="profile-bio">${escapeHtml(user.bio)}</div>` : (isOwn ? `<div class="profile-bio" style="color:var(--text-muted);font-style:italic">Додайте опис в налаштуваннях</div>` : '')}
           <div class="profile-stats">
             <div class="profile-stat"><div class="stat-value">${reviews.length}</div><div class="stat-label">Рецензій</div></div>
-            <div class="profile-stat"><div class="stat-value">${reviews.filter(r => r.status === 'done').length}</div><div class="stat-label">Завершено</div></div>
+            <div class="profile-stat"><div class="stat-value">${reviews.filter(r => r.status === 'done').length}</div><div class="stat-label">Прочитано</div></div>
             <div class="profile-stat"><div class="stat-value">${reviews.filter(r => r.status === 'reading').length}</div><div class="stat-label">Читаю</div></div>
             <div class="profile-stat"><div class="stat-value">${reviews.filter(r => r.status === 'planned').length}</div><div class="stat-label">В планах</div></div>
             <div class="profile-stat"><div class="stat-value">${reviews.filter(r => r.status === 'dropped').length}</div><div class="stat-label">Кинуто</div></div>
@@ -79,9 +79,9 @@ export async function renderAccountPage(userId, isOwn = false) {
           <div class="section-title" style="margin:0">📚 Останні рецензії</div>
         </div>
         ${reviews.length === 0
-          ? `<div class="empty-state"><div class="empty-icon">📖</div><h3>Ще немає рецензій</h3>${isOwn ? `<p><button class="btn btn-primary btn-sm" id="add-first-review">✍️ Написати першу</button></p>` : ''}</div>`
-          : `<div class="manhwa-grid">
-              ${reviews.slice(0, 6).map(r => `
+      ? `<div class="empty-state"><div class="empty-icon">📖</div><h3>Ще немає рецензій</h3>${isOwn ? `<p><button class="btn btn-primary btn-sm" id="add-first-review">✍️ Написати першу</button></p>` : ''}</div>`
+      : `<div class="manhwa-grid recent-grid">
+              ${reviews.slice(0, 10).map(r => `
                 <div class="manhwa-thumb-wrap" style="display:flex;flex-direction:column;align-items:center;cursor:pointer" data-review-id="${r.id}" title="${escapeHtml(r.title)}">
                   <div class="manhwa-thumb">
                     ${r.coverBase64 ? `<img src="${r.coverBase64}" alt="${escapeHtml(r.title)}">` : `<div class="manhwa-thumb-placeholder">📖</div>`}
@@ -99,8 +99,8 @@ export async function renderAccountPage(userId, isOwn = false) {
           ${isOwn ? `<button class="btn btn-primary btn-sm" id="create-playlist-btn">➕ Створити</button>` : ''}
         </div>
         ${playlists.length === 0
-          ? `<div class="empty-state"><div class="empty-icon">📁</div><h3>Ще немає плейлістів</h3></div>`
-          : `<div class="manhwa-grid">
+      ? `<div class="empty-state"><div class="empty-icon">📁</div><h3>Ще немає плейлістів</h3></div>`
+      : `<div class="manhwa-grid">
               ${playlists.map(p => `
                 <div class="playlist-card" data-playlist-id="${p.id}" style="background:var(--bg-surface);padding:16px;border-radius:var(--radius-md);border:1px solid var(--border);cursor:pointer;text-align:center;display:flex;flex-direction:column;justify-content:center;min-height:120px;transition:0.2s">
                   <div style="font-size:2rem;margin-bottom:8px">📑</div>
@@ -157,7 +157,7 @@ export async function renderAccountPage(userId, isOwn = false) {
         e.stopPropagation();
         const slotIdx = parseInt(btn.dataset.removeSlot);
         const freshUser = await Users.byId(userId);
-        const t4 = [...(freshUser.top4 || [null,null,null,null])];
+        const t4 = [...(freshUser.top4 || [null, null, null, null])];
         t4[slotIdx] = null;
         await Users.save({ ...freshUser, top4: t4 });
         await renderAccountPage(userId, isOwn);
@@ -187,7 +187,7 @@ function showPlaylistCreateModal(userId, reviews) {
               <label class="form-label">Виберіть манхви</label>
               <div style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;padding:8px" class="modal-body-scroll">
                 ${reviews.length === 0 ? '<div style="color:var(--text-muted)">Немає рецензій для вибору</div>' :
-                  reviews.map(r => `
+      reviews.map(r => `
                     <label style="display:flex;align-items:center;gap:12px;cursor:pointer;padding:8px;background:var(--bg-surface);border-radius:var(--radius-sm)">
                       <input type="checkbox" value="${r.id}" class="pc-review-cb" style="width:18px;height:18px;cursor:pointer">
                       ${r.coverBase64 ? `<img src="${r.coverBase64}" style="width:36px;height:48px;object-fit:cover;border-radius:4px">` : `<div style="width:36px;height:48px;background:var(--bg-hover);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px">📖</div>`}
@@ -229,7 +229,7 @@ function showPlaylistCreateModal(userId, reviews) {
 function showPlaylistViewModal(playlist, reviews, userId, isOwn) {
   const holder = document.getElementById('playlist-modal-placeholder');
   const items = playlist.reviewIds.map(rid => reviews.find(r => r.id === rid)).filter(Boolean);
-  
+
   holder.innerHTML = `
     <div class="modal-backdrop" id="playlist-view-modal">
       <div class="modal-box modal-box-lg">
@@ -240,14 +240,14 @@ function showPlaylistViewModal(playlist, reviews, userId, isOwn) {
         <div class="modal-body">
           <div class="modal-body-scroll" style="max-height:450px;overflow-y:auto;padding-right:8px">
             ${items.length === 0 ? '<div class="empty-state"><h3>Плейліст порожній</h3></div>' :
-              items.map(r => `
+      items.map(r => `
                 <div class="review-card" style="margin-bottom:10px;cursor:pointer" data-pv-review="${r.id}">
                   <div class="review-cover" style="width:60px">
                     ${r.coverBase64 ? `<img src="${r.coverBase64}" alt="">` : '<div class="review-cover-placeholder">📖</div>'}
                   </div>
                   <div class="review-body">
                     <div class="review-title">${escapeHtml(r.title)}</div>
-                    <div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px">📚 ${r.chapters || 0} глав | Оцінка: ${r.status==='planned' ? '-' : (r.status==='dropped' ? 'Кинуто' : r.rating)}</div>
+                    <div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px">📚 ${r.chapters || 0} глав | Оцінка: ${r.status === 'planned' ? '-' : (r.status === 'dropped' ? 'Кинуто' : r.rating)}</div>
                   </div>
                 </div>
               `).join('')}
@@ -263,7 +263,7 @@ function showPlaylistViewModal(playlist, reviews, userId, isOwn) {
 
   const close = () => { holder.innerHTML = ''; };
   document.getElementById('pv-close').addEventListener('click', close);
-  
+
   holder.querySelectorAll('[data-pv-review]').forEach(el => {
     el.addEventListener('click', () => { close(); navigate(`review/${el.dataset.pvReview}`); });
   });
@@ -472,7 +472,7 @@ function showTop4Picker(userId, slotIdx, reviews) {
           <input class="input" id="top4-search" placeholder="🔍  Пошук..." style="margin-bottom:16px">
           <div class="manhwa-grid">
             ${reviews.length === 0 ? `<div class='empty-state'><h3>Немає рецензій</h3></div>` :
-              reviews.map(r => `
+      reviews.map(r => `
                 <div class="manhwa-thumb-wrap" data-pick-review="${r.id}" title="${escapeHtml(r.title)}" style="cursor:pointer">
                   <div class="manhwa-thumb">
                     ${r.coverBase64 ? `<img src="${r.coverBase64}" alt="">` : `<div class="manhwa-thumb-placeholder" style="font-size:11px;padding:4px;text-align:center;word-break:break-word">${escapeHtml(r.title)}</div>`}
@@ -498,7 +498,7 @@ function showTop4Picker(userId, slotIdx, reviews) {
   holder.querySelectorAll('[data-pick-review]').forEach(el => {
     el.addEventListener('click', async () => {
       const freshUser = await Users.byId(userId);
-      const t4 = [...(freshUser.top4 || [null,null,null,null])];
+      const t4 = [...(freshUser.top4 || [null, null, null, null])];
       t4[slotIdx] = el.dataset.pickReview;
       await Users.save({ ...freshUser, top4: t4 });
       close();
@@ -515,7 +515,7 @@ function showAvatarCropModal(file, onSave) {
   const reader = new FileReader();
   reader.onload = () => {
     const imgSrc = reader.result;
-    
+
     holder.innerHTML = `
       <div class="modal-backdrop" id="avatar-crop-modal">
         <div class="modal-box" style="max-width:420px">

@@ -90,3 +90,7 @@ Thumbs.db
 # Vite
 dist/
 dist-ssr/
+
+# Firebase Service Account Keys
+scripts/serviceAccount.json
+manhwadb-*-firebase-adminsdk-*.json

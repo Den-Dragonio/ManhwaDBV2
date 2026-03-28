@@ -60,10 +60,16 @@ service cloud.firestore {
       allow update, delete: if request.auth != null;
     }
 
-    // 9. Плейлисты
+    // 9. Плейлисти
     match /playlists/{id} {
       allow create: if request.auth != null;
       allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // 10. Manga Metadata (scraped info)
+    match /manga_metadata/{id} {
+      allow read: if true;
+      allow write: if request.auth != null;
     }
   }
 }

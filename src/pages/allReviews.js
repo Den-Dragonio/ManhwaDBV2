@@ -77,8 +77,8 @@ export async function renderAllReviews({ userId }) {
       }
     });
   });
-  
-  const tagEntries = Object.values(tagCounts).sort((a,b) => b.count - a.count);
+
+  const tagEntries = Object.values(tagCounts).sort((a, b) => b.count - a.count);
   let tagHtml = '<option value="">Всі теги</option>';
   tagEntries.forEach(tg => {
     tagHtml += `<option value="${escapeHtml(tg.name.toLowerCase())}">${escapeHtml(tg.name)} (${tg.count})</option>`;
@@ -103,7 +103,7 @@ export async function renderAllReviews({ userId }) {
 
   const applySortAndFilter = () => {
     let list = [...reviews];
-    
+
     if (currentSearch) {
       list = list.filter(r => r.title.toLowerCase().includes(currentSearch));
     }
@@ -149,7 +149,7 @@ export async function renderAllReviews({ userId }) {
         currentDir = 'desc';
         btn.dataset.dir = 'desc';
       }
-      
+
       const emoji = currentDir === 'desc' ? '⬇️' : '⬆️';
       btn.innerHTML = btn.innerHTML.replace(/⬇️|⬆️/, emoji);
       applySortAndFilter();
@@ -167,9 +167,9 @@ export async function renderAllReviews({ userId }) {
 
 function renderGrid(reviews) {
   if (reviews.length === 0) return `<div class="empty-state"><div class="empty-icon">📭</div><h3>Нічого не знайдено</h3></div>`;
-  const statusLabels = { done: '✅ Завершено', reading: '📖 Читаю', planned: '⏳ В планах', dropped: '❌ Кинув' };
+  const statusLabels = { done: '✅ Прочитано', reading: '📖 Читаю', planned: '⏳ В планах', dropped: '❌ Кинув' };
   const statusClass = { done: 'status-done', reading: 'status-reading', planned: 'status-planned', dropped: 'status-dropped' };
-  
+
   return reviews.map(r => {
     const isDropped = r.status === 'dropped' || r.status === 'planned';
     return `<div class="review-card all-reviews-card" style="cursor:pointer" data-review-id="${r.id}">

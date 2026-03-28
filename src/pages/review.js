@@ -10,37 +10,38 @@ export async function renderReview({ id }) {
   const container = document.getElementById('page-root');
   showLoader(container);
 
-  const [review, currentUser] = await Promise.all([
-    Reviews.byId(id),
-    Promise.resolve(Session.currentUser()),
-  ]);
+  try {
+    const [review, currentUser] = await Promise.all([
+      Reviews.byId(id),
+      Promise.resolve(Session.currentUser()),
+    ]);
 
-  if (!review) {
-    container.innerHTML = `<div class="page-container"><div class="empty-state"><div class="empty-icon">😕</div><h3>Рецензія не знайдена</h3></div></div>`;
-    return;
-  }
+    if (!review) {
+      container.innerHTML = `<div class="page-container"><div class="empty-state"><div class="empty-icon">😕</div><h3>Рецензія не знайдена</h3></div></div>`;
+      return;
+    }
 
-  const author = await Users.byId(review.userId);
-  const isOwner = currentUser && currentUser.id === review.userId;
-  const isDropped = review.status === 'dropped';
-  const isPlanned = review.status === 'planned';
-  const statusLabels = { done: '✅ Завершено', reading: '📖 Читаю', planned: '⏳ В планах', dropped: '❌ Кинув' };
-  const statusClass = { done: 'status-done', reading: 'status-reading', planned: 'status-planned', dropped: 'status-dropped' };
+    const author = await Users.byId(review.userId);
+    const isOwner = currentUser && currentUser.id === review.userId;
+    const isDropped = review.status === 'dropped';
+    const isPlanned = review.status === 'planned';
+    const statusLabels = { done: '✅ Прочитано', reading: '📖 Читаю', planned: '⏳ В планах', dropped: '❌ Кинув' };
+    const statusClass = { done: 'status-done', reading: 'status-reading', planned: 'status-planned', dropped: 'status-dropped' };
 
-  const likes = review.likes || [];
-  const dislikes = review.dislikes || [];
-  const userLiked = currentUser && likes.includes(currentUser.id);
-  const userDisliked = currentUser && dislikes.includes(currentUser.id);
+    const likes = review.likes || [];
+    const dislikes = review.dislikes || [];
+    const userLiked = currentUser && likes.includes(currentUser.id);
+    const userDisliked = currentUser && dislikes.includes(currentUser.id);
 
-  container.innerHTML = `
+    container.innerHTML = `
     <div class="page-container" style="max-width:860px">
       <button class="btn btn-ghost btn-sm" id="back-btn" style="margin-bottom:20px">← Назад</button>
 
       <div class="review-full-layout">
         <div class="review-full-cover">
           ${review.coverBase64
-            ? `<img src="${review.coverBase64}" alt="${escapeHtml(review.title)}">`
-            : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:48px;background:var(--bg-surface)">📖</div>`}
+        ? `<img src="${review.coverBase64}" alt="${escapeHtml(review.title)}">`
+        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:48px;background:var(--bg-surface)">📖</div>`}
         </div>
         <div class="review-full-body">
           <div class="review-full-title">${escapeHtml(review.title)}</div>
@@ -101,144 +102,148 @@ export async function renderReview({ id }) {
       </div>
     </div>`;
 
-  // Wire events
-  document.getElementById('back-btn').addEventListener('click', () => history.back());
+    // Wire events
+    document.getElementById('back-btn').addEventListener('click', () => history.back());
 
-  // x9 quality widget (best-effort, hides itself if not available)
-  if (!isPlanned) {
-    void (async () => {
-      try {
-        const data = await fetchX9QualityByTitle(review.title);
-        if (!data) return;
-        const tagEl = document.getElementById('x9-quality-tag');
-        const widgetEl = document.getElementById('x9-rating-widget');
-        if (!tagEl || !widgetEl) return;
-        tagEl.style.display = 'inline-flex';
-        widgetEl.style.display = 'block';
-        document.getElementById('x9-rating-score').textContent = String(data.score);
-        document.getElementById('x9-rating-votes').textContent = `${data.votes} голосов`;
-      } catch {
-        // No-op
-      }
-    })();
-  }
-
-  container.querySelectorAll('[data-profile]').forEach(a => {
-    a.addEventListener('click', e => { e.preventDefault(); navigate(`profile/${a.dataset.profile}`); });
-  });
-
-  // Reactions
-  if (currentUser) {
-    const likeBtn = document.getElementById('rv-like-btn');
-    const dislikeBtn = document.getElementById('rv-dislike-btn');
-
-    if (likeBtn && dislikeBtn) {
-      likeBtn.addEventListener('click', async () => {
-        // Check if blocked
-        const blocked = await Users.isBlockedBy(review.userId, currentUser.id);
-        if (blocked) { showToast('Ви заблоковані цим користувачем', 'warning'); return; }
-        const wasLiked = likeBtn.classList.contains('liked');
-        const wasDisliked = dislikeBtn.classList.contains('disliked');
-
-        // Optimistic UI
-        if (wasLiked) {
-          likeBtn.classList.remove('liked');
-          likeBtn.textContent = `👍 ${Math.max(0, likes.length - 1)}`;
-        } else {
-          likeBtn.classList.add('liked');
-          likeBtn.textContent = `👍 ${likes.length + 1}`;
-          if (wasDisliked) {
-            dislikeBtn.classList.remove('disliked');
-            dislikeBtn.textContent = `👎 ${Math.max(0, dislikes.length - 1)}`;
-          }
-        }
-
+    // x9 quality widget (best-effort, hides itself if not available)
+    if (!isPlanned) {
+      void (async () => {
         try {
-          await Reviews.toggleLike(id, currentUser.id);
-          renderReview({ id });
-        } catch (e) {
-          console.error("Like error:", e);
-          showToast('Помилка синхронізації', 'error');
-          renderReview({ id }); // Rollback
+          const data = await fetchX9QualityByTitle(review.title);
+          if (!data) return;
+          const tagEl = document.getElementById('x9-quality-tag');
+          const widgetEl = document.getElementById('x9-rating-widget');
+          if (!tagEl || !widgetEl) return;
+          tagEl.style.display = 'inline-flex';
+          widgetEl.style.display = 'block';
+          document.getElementById('x9-rating-score').textContent = String(data.score);
+          document.getElementById('x9-rating-votes').textContent = `${data.votes} голосов`;
+        } catch {
+          // No-op
         }
-      });
+      })();
+    }
 
-      dislikeBtn.addEventListener('click', async () => {
-        // Check if blocked
-        const blocked = await Users.isBlockedBy(review.userId, currentUser.id);
-        if (blocked) { showToast('Ви заблоковані цим користувачем', 'warning'); return; }
-        const wasLiked = likeBtn.classList.contains('liked');
-        const wasDisliked = dislikeBtn.classList.contains('disliked');
+    container.querySelectorAll('[data-profile]').forEach(a => {
+      a.addEventListener('click', e => { e.preventDefault(); navigate(`profile/${a.dataset.profile}`); });
+    });
 
-        // Optimistic UI
-        if (wasDisliked) {
-          dislikeBtn.classList.remove('disliked');
-          dislikeBtn.textContent = `👎 ${Math.max(0, dislikes.length - 1)}`;
-        } else {
-          dislikeBtn.classList.add('disliked');
-          dislikeBtn.textContent = `👎 ${dislikes.length + 1}`;
+    // Reactions
+    if (currentUser) {
+      const likeBtn = document.getElementById('rv-like-btn');
+      const dislikeBtn = document.getElementById('rv-dislike-btn');
+
+      if (likeBtn && dislikeBtn) {
+        likeBtn.addEventListener('click', async () => {
+          // Check if blocked
+          const blocked = await Users.isBlockedBy(review.userId, currentUser.id);
+          if (blocked) { showToast('Ви заблоковані цим користувачем', 'warning'); return; }
+          const wasLiked = likeBtn.classList.contains('liked');
+          const wasDisliked = dislikeBtn.classList.contains('disliked');
+
+          // Optimistic UI
           if (wasLiked) {
             likeBtn.classList.remove('liked');
             likeBtn.textContent = `👍 ${Math.max(0, likes.length - 1)}`;
+          } else {
+            likeBtn.classList.add('liked');
+            likeBtn.textContent = `👍 ${likes.length + 1}`;
+            if (wasDisliked) {
+              dislikeBtn.classList.remove('disliked');
+              dislikeBtn.textContent = `👎 ${Math.max(0, dislikes.length - 1)}`;
+            }
           }
-        }
 
-        try {
-          await Reviews.toggleDislike(id, currentUser.id);
-          renderReview({ id });
-        } catch (e) {
-          console.error("Dislike error:", e);
-          showToast('Помилка синхронізації', 'error');
-          renderReview({ id }); // Rollback
-        }
+          try {
+            await Reviews.toggleLike(id, currentUser.id);
+            renderReview({ id });
+          } catch (e) {
+            console.error("Like error:", e);
+            showToast('Помилка синхронізації', 'error');
+            renderReview({ id }); // Rollback
+          }
+        });
+
+        dislikeBtn.addEventListener('click', async () => {
+          // Check if blocked
+          const blocked = await Users.isBlockedBy(review.userId, currentUser.id);
+          if (blocked) { showToast('Ви заблоковані цим користувачем', 'warning'); return; }
+          const wasLiked = likeBtn.classList.contains('liked');
+          const wasDisliked = dislikeBtn.classList.contains('disliked');
+
+          // Optimistic UI
+          if (wasDisliked) {
+            dislikeBtn.classList.remove('disliked');
+            dislikeBtn.textContent = `👎 ${Math.max(0, dislikes.length - 1)}`;
+          } else {
+            dislikeBtn.classList.add('disliked');
+            dislikeBtn.textContent = `👎 ${dislikes.length + 1}`;
+            if (wasLiked) {
+              likeBtn.classList.remove('liked');
+              likeBtn.textContent = `👍 ${Math.max(0, likes.length - 1)}`;
+            }
+          }
+
+          try {
+            await Reviews.toggleDislike(id, currentUser.id);
+            renderReview({ id });
+          } catch (e) {
+            console.error("Dislike error:", e);
+            showToast('Помилка синхронізації', 'error');
+            renderReview({ id }); // Rollback
+          }
+        });
+      }
+    }
+
+    // Owner controls
+    if (isOwner) {
+      document.getElementById('edit-review-btn').addEventListener('click', () => navigate(`edit-review/${id}`));
+      document.getElementById('delete-review-btn').addEventListener('click', async () => {
+        if (!window.confirm('Видалити цю рецензію? Це неможливо скасувати.')) return;
+        await Reviews.delete(id);
+        showToast('Рецензію видалено', 'info');
+        navigate('account');
       });
     }
-  }
 
-  // Owner controls
-  if (isOwner) {
-    document.getElementById('edit-review-btn').addEventListener('click', () => navigate(`edit-review/${id}`));
-    document.getElementById('delete-review-btn').addEventListener('click', async () => {
-      if (!window.confirm('Видалити цю рецензію? Це неможливо скасувати.')) return;
-      await Reviews.delete(id);
-      showToast('Рецензію видалено', 'info');
-      navigate('account');
+    // Login-to-comment
+    document.getElementById('login-to-comment')?.addEventListener('click', e => {
+      e.preventDefault();
+      import('../components/authModal.js').then(m => m.showAuthModal('login'));
     });
-  }
 
-  // Login-to-comment
-  document.getElementById('login-to-comment')?.addEventListener('click', e => {
-    e.preventDefault();
-    import('../components/authModal.js').then(m => m.showAuthModal('login'));
-  });
+    // Post comment
+    document.getElementById('post-comment-btn')?.addEventListener('click', async () => {
+      const text = document.getElementById('new-comment-text').value.trim();
+      if (!text) return;
+      // Check if review owner blocked the commenter
+      const blocked = await Users.isBlockedBy(review.userId, currentUser.id);
+      if (blocked) { showToast('Ви заблоковані цим користувачем', 'warning'); return; }
+      const btn = document.getElementById('post-comment-btn');
+      btn.disabled = true; btn.textContent = '...';
+      await Comments.create(id, currentUser.id, text);
+      // Notify review owner about new comment
+      if (review.userId !== currentUser.id) {
+        await News.add('new_comment', currentUser.id, review.userId, {
+          reviewId: id,
+          reviewTitle: review.title,
+          commenterName: currentUser.username,
+          read: false,
+        }).catch(console.error);
+      }
+      document.getElementById('new-comment-text').value = '';
+      btn.disabled = false; btn.textContent = 'Надіслати';
+      await loadComments(id, currentUser);
+      showToast('Коментар додано', 'success');
+    });
 
-  // Post comment
-  document.getElementById('post-comment-btn')?.addEventListener('click', async () => {
-    const text = document.getElementById('new-comment-text').value.trim();
-    if (!text) return;
-    // Check if review owner blocked the commenter
-    const blocked = await Users.isBlockedBy(review.userId, currentUser.id);
-    if (blocked) { showToast('Ви заблоковані цим користувачем', 'warning'); return; }
-    const btn = document.getElementById('post-comment-btn');
-    btn.disabled = true; btn.textContent = '...';
-    await Comments.create(id, currentUser.id, text);
-    // Notify review owner about new comment
-    if (review.userId !== currentUser.id) {
-      await News.add('new_comment', currentUser.id, review.userId, {
-        reviewId: id,
-        reviewTitle: review.title,
-        commenterName: currentUser.username,
-        read: false,
-      }).catch(console.error);
-    }
-    document.getElementById('new-comment-text').value = '';
-    btn.disabled = false; btn.textContent = 'Надіслати';
+    // Load comments
     await loadComments(id, currentUser);
-    showToast('Коментар додано', 'success');
-  });
-
-  // Load comments
-  await loadComments(id, currentUser);
+  } catch (e) {
+    console.error("Review render error:", e);
+    container.innerHTML = `<div class="page-container"><div class="empty-state"><div class="empty-icon">⚠️</div><h3>Помилка завантаження</h3><p>${e.message}</p></div></div>`;
+  }
 }
 
 async function loadComments(reviewId, currentUser) {
@@ -261,7 +266,7 @@ async function loadComments(reviewId, currentUser) {
       if (!currentUser) return;
       const commentId = btn.dataset.commentLike;
       const dislikeBtn = el.querySelector(`.reaction-btn[data-comment-dislike="${commentId}"]`);
-      
+
       const wasLiked = btn.classList.contains('liked');
       const wasDisliked = dislikeBtn?.classList.contains('disliked');
       const countSpan = btn; // btn text has the count
@@ -297,10 +302,10 @@ async function loadComments(reviewId, currentUser) {
       if (!currentUser) return;
       const commentId = btn.dataset.commentDislike;
       const likeBtn = el.querySelector(`.reaction-btn[data-comment-like="${commentId}"]`);
-      
+
       const wasLiked = likeBtn?.classList.contains('liked');
       const wasDisliked = btn.classList.contains('disliked');
-      
+
       let currentCount = parseInt(btn.textContent.split(' ')[1]) || 0;
 
       if (wasDisliked) {
