@@ -336,7 +336,11 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
         if (aniRes.errors || finalHtmlItems.length < 5) {
            try {
              const ratings = ['safe', 'suggestive', 'erotica', 'pornographic'].map(r => `contentRating[]=${r}`).join('&');
-             const mdexRes = await fetch(`https://api.mangadex.org/manga?title=${encodeURIComponent(q)}&limit=10&includes[]=cover_art&${ratings}`).then(r => r.json());
+             const rawUrl = `https://api.mangadex.org/manga?title=${encodeURIComponent(q)}&limit=10&includes[]=cover_art&${ratings}`;
+             // Wrap in CORS proxy because MangaDex blocks github.io/onrender.com origins
+             const proxyUrl = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(rawUrl)}`;
+             const mdexRes = await fetch(proxyUrl).then(r => r.json());
+             
              (mdexRes.data || []).forEach(m => {
                const titles = m.attributes.title;
                const t = titles.en || Object.values(titles)[0];
