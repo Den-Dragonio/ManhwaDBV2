@@ -107,9 +107,9 @@ export async function renderHome() {
     if (!q) { resultsEl.style.display = 'none'; return; }
     const groups = {};
     allReviews.forEach(r => {
-      const qMatch = r.title.toLowerCase().includes(q);
+      const qMatch = (r.title || '').toLowerCase().includes(q);
       if (qMatch) {
-        const tid = r.titleId || `manual_${r.title.toLowerCase().replace(/\s+/g, '_')}`;
+        const tid = r.titleId || `manual_${(r.title || '').toLowerCase().replace(/\s+/g, '_')}`;
         if (!groups[tid]) groups[tid] = { ...r, titleId: tid, totalRating: 0, count: 0 };
         groups[tid].totalRating += r.rating;
         groups[tid].count += 1;

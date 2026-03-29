@@ -59,13 +59,17 @@ export async function renderFriends() {
           <div style="display:flex;flex-direction:column;gap:8px" id="pending-list">
             ${enrichedPending.map(f => `
               <div class="friend-item">
-                ${avatarHtml(f.otherUser, 'sm')}
-                <div class="friend-info">
-                  <div class="friend-name" data-profile="${f.requesterId}" style="cursor:pointer">${escapeHtml(f.otherUser?.username || 'Невідомий')}</div>
+                <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:0">
+                  ${avatarHtml(f.otherUser, 'sm')}
+                  <div class="friend-info" style="min-width:0">
+                    <div class="friend-name" data-profile="${f.requesterId}" style="cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${escapeHtml(f.otherUser?.username || 'Невідомий')}</div>
+                  </div>
                 </div>
-                <button class="btn btn-primary btn-sm" data-accept="${f.requesterId}">✅ Прийняти</button>
-                <button class="btn btn-danger btn-sm" data-decline="${f.requesterId}">❌</button>
-                ${f.declineCount >= 2 ? `<button class="btn btn-sm" data-block="${f.requesterId}" style="background:#5a1a1a;border:1px solid #e63946;color:#ff6b6b">🔒 Блок</button>` : ''}
+                <div class="friend-actions" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+                  <button class="btn btn-primary btn-sm" data-accept="${f.requesterId}">✅ Прийняти</button>
+                  <button class="btn btn-danger btn-sm" data-decline="${f.requesterId}">❌</button>
+                  ${f.declineCount >= 2 ? `<button class="btn btn-sm" data-block="${f.requesterId}" style="background:#5a1a1a;border:1px solid #e63946;color:#ff6b6b">🔒 Блок</button>` : ''}
+                </div>
               </div>`).join('')}
           </div>
         </div>` : ''}
@@ -77,12 +81,16 @@ export async function renderFriends() {
           <div style="display:flex;flex-direction:column;gap:8px">
             ${enrichedSent.map(f => `
               <div class="friend-item">
-                ${avatarHtml(f.otherUser, 'sm')}
-                <div class="friend-info">
-                  <div class="friend-name" data-profile="${f.receiverId}" style="cursor:pointer">${escapeHtml(f.otherUser?.username || 'Невідомий')}</div>
+                <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:0">
+                  ${avatarHtml(f.otherUser, 'sm')}
+                  <div class="friend-info" style="min-width:0">
+                    <div class="friend-name" data-profile="${f.receiverId}" style="cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${escapeHtml(f.otherUser?.username || 'Невідомий')}</div>
+                  </div>
                 </div>
-                <span class="friend-status friend-pending">Очікує</span>
-                <button class="btn btn-ghost btn-xs" data-cancel="${f.receiverId}">✕</button>
+                <div class="friend-actions" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+                  <span class="friend-status friend-pending">Очікує</span>
+                  <button class="btn btn-ghost btn-xs" data-cancel="${f.receiverId}">✕</button>
+                </div>
               </div>`).join('')}
           </div>
         </div>` : ''}
@@ -94,13 +102,17 @@ export async function renderFriends() {
           ? `<div class="empty-state"><div class="empty-icon">🤝</div><h3>У вас ще немає друзів</h3><p>Знайдіть їх за логіном вище!</p></div>`
           : enrichedFriends.map(f => `
               <div class="friend-item">
-                ${avatarHtml(f.otherUser, 'md')}
-                <div class="friend-info">
-                  <div class="friend-name" data-profile="${f.otherId}" style="cursor:pointer">${escapeHtml(f.otherUser?.username || 'Невідомий')}</div>
+                <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:0">
+                  ${avatarHtml(f.otherUser, 'md')}
+                  <div class="friend-info" style="min-width:0">
+                    <div class="friend-name" data-profile="${f.otherId}" style="cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${escapeHtml(f.otherUser?.username || 'Невідомий')}</div>
+                  </div>
                 </div>
-                <span class="friend-status friend-accepted">Друг</span>
-                <button class="btn btn-secondary btn-xs" data-view-profile="${f.otherId}">Профіль</button>
-                <button class="btn btn-danger btn-xs" data-remove="${f.otherId}">Видалити</button>
+                <div class="friend-actions" style="display:flex; gap:6px; align-items:center; flex-wrap:wrap">
+                  <span class="friend-status friend-accepted">Друг</span>
+                  <button class="btn btn-secondary btn-xs" data-view-profile="${f.otherId}">Профіль</button>
+                  <button class="btn btn-danger btn-xs" data-remove="${f.otherId}">Видалити</button>
+                </div>
               </div>`).join('')}
       </div>
     </div>`;
@@ -135,9 +147,13 @@ export async function renderFriends() {
     }
 
     searchResult.innerHTML = `<div class="friend-item">
-      ${avatarHtml(found, 'sm')}
-      <div class="friend-info"><div class="friend-name">${escapeHtml(found.username)}</div></div>
-      ${btn}
+      <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:0">
+        ${avatarHtml(found, 'sm')}
+        <div class="friend-info" style="min-width:0"><div class="friend-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${escapeHtml(found.username)}</div></div>
+      </div>
+      <div class="friend-actions" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+        ${btn}
+      </div>
     </div>`;
 
     document.getElementById('add-friend-btn')?.addEventListener('click', async () => {

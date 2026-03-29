@@ -45,6 +45,7 @@ query ($id: Int) {
     popularity
     favourites
     genres
+    tags { name }
     startDate { year month day }
     endDate { year month day }
     staff(perPage: 10) {
@@ -154,6 +155,24 @@ def fetch_anilist(anilist_id):
         title = media.get('title', {})
         title_en = title.get('english') or title.get('romaji') or ''
 
+        raw_genres = media.get('genres') or []
+        tags_data = media.get('tags') or []
+        raw_tags = [t.get('name') for t in tags_data if t.get('name')]
+        all_raw = raw_genres + raw_tags
+        
+        mapped_tags = []
+        for t in all_raw:
+            lower_t = t.lower()
+            if 'x-ray' in lower_t: mapped_tags.append('рентген')
+            if 'ahegao' in lower_t: mapped_tags.append('ахегао')
+            if 'smut' in lower_t: mapped_tags.append('🔥🔞сцены')
+            if 'ntr' in lower_t or 'netorare' in lower_t: mapped_tags.append('nrt')
+            if 'animated' in lower_t: mapped_tags.append('animated')
+            if 'foot fetish' in lower_t: mapped_tags.append('футфетиш')
+            if 'bdsm' in lower_t: mapped_tags.append('бдсм')
+            
+        final_genres = list(set(raw_genres + mapped_tags))
+
         result = {
             'anilist_id': media['id'],
             'title': title_en,
@@ -166,7 +185,7 @@ def fetch_anilist(anilist_id):
             'favourites': media.get('favourites'),
             'chapters': media.get('chapters'),
             'volumes': media.get('volumes'),
-            'genres': media.get('genres', []),
+            'genres': final_genres,
             'year': year,
             'author': author,
             'artist': artist,

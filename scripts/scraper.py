@@ -284,9 +284,27 @@ def scrape_toongod(url):
                 data['alt_title'] = val
 
         # Genres
+        # Genres and Tags Mapping
         genre_links = soup.select('.genres-content a')
-        if genre_links:
-            data['genres'] = [a.get_text(strip=True) for a in genre_links]
+        raw_genres = [a.get_text(strip=True) for a in genre_links] if genre_links else []
+        
+        tag_links = soup.select('.tags-content a, .wp-manga-tags-list a')
+        raw_tags = [a.get_text(strip=True) for a in tag_links] if tag_links else []
+        
+        all_raw = raw_genres + raw_tags
+        mapped_tags = []
+        for t in all_raw:
+            lower_t = t.lower()
+            if 'x-ray' in lower_t: mapped_tags.append('рентген')
+            if 'ahegao' in lower_t: mapped_tags.append('ахегао')
+            if 'smut' in lower_t: mapped_tags.append('🔥🔞сцены')
+            if 'ntr' in lower_t or 'netorare' in lower_t: mapped_tags.append('nrt')
+            if 'animated' in lower_t: mapped_tags.append('animated')
+            if 'foot fetish' in lower_t: mapped_tags.append('футфетиш')
+            if 'bdsm' in lower_t: mapped_tags.append('бдсм')
+            
+        if all_raw:
+            data['genres'] = list(set(raw_genres + mapped_tags))
 
         # ── Official Rating ────────────────────────────────────────────────────
         # The rating section has text like "Average 4.3 / 5 out of 1.1K"

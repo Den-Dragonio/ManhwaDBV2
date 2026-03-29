@@ -92,7 +92,15 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
             <button type="button" class="preset-tag" data-tag="Тройничок">Тройничок 👨‍👩‍👧</button>
             <button type="button" class="preset-tag" data-tag="Гарем">Гарем 👯‍♀️</button>
             <button type="button" class="preset-tag" data-tag="Таймскип">Таймскип ⏳</button>
-            <button type="button" class="preset-tag" data-tag="Принуждение">Принуждение ⛓️</button>
+            <button type="button" class="preset-tag" data-tag="Принуждение">Принуждение 😈</button>
+            
+            <button type="button" class="preset-tag" data-tag="рентген">Рентген 🩻</button>
+            <button type="button" class="preset-tag" data-tag="ахегао">Ахегао 🤤</button>
+            <button type="button" class="preset-tag" data-tag="🔥🔞сцены">🔥🔞 Сцени</button>
+            <button type="button" class="preset-tag" data-tag="nrt">NTR 💔</button>
+            <button type="button" class="preset-tag" data-tag="animated">Animated 🎬</button>
+            <button type="button" class="preset-tag" data-tag="футфетиш">Футфетиш 👣</button>
+            <button type="button" class="preset-tag" data-tag="бдсм">БДСМ ⛓️</button>
 
             <!-- 4. Community Stats -->
             <button type="button" class="preset-tag preset-tag-fire" data-tag="Сюжет +">Сюжет 😍</button>
@@ -207,7 +215,11 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
     if (file?.type.startsWith('image/')) { currentCover = await compressImage(file, 700, 0.65); refreshCoverUI(); }
   });
 
-  // Search Integration (Firestore + AniList + H-Chan)
+  // Fetch user reviews once for client-side deduplication
+  let userReviews = [];
+  try { userReviews = await Reviews.byUser(user.id); } catch (e) { console.warn("Could not fetch user reviews", e); }
+
+  // Search Integration (Firestore + AniList + MangaDex + H-Chan)
   const titleInput = document.getElementById('review-title');
   const resultsBox = document.getElementById('autocomplete-results');
   let searchTimeout = null;
@@ -220,42 +232,35 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
     searchTimeout = setTimeout(async () => {
       try {
         resultsBox.style.display = 'block';
-        resultsBox.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted)">Шукаємо в базі та AniList...</div>';
+        resultsBox.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted)">Шукаємо в базі та мережі...</div>';
 
-        // Parallel fetching
+        // Helper for normalization
+        const normalize = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+
+        // Parallel fetching for speed
         const [firestoreRes, aniRes, hchanRes] = await Promise.all([
-          // 1. Efficient Firestore prefix query (Optimization requested)
+          // 1. Search in our broad metadata collection
           (async () => {
             try {
               const { query, collection, orderBy, startAt, endAt, limit, getDocs } = await import('firebase/firestore');
               const { db } = await import('../firebase.js');
               const qry = query(
-                collection(db, 'reviews'),
+                collection(db, 'manga_metadata'),
                 orderBy('title'),
                 startAt(q),
                 endAt(q + '\uf8ff'),
-                limit(10)
+                limit(15)
               );
               const snap = await getDocs(qry);
-              const items = [];
-              const seen = new Set();
-              snap.docs.forEach(doc => {
-                const data = doc.data();
-                const tid = data.titleId;
-                if (!seen.has(tid)) {
-                  items.push({ id: doc.id, title: data.title, titleId: tid, cover: data.coverBase64, chapters: data.chapters });
-                  seen.add(tid);
-                }
-              });
-              return items;
-            } catch (e) { console.warn("Firestore search fail:", e); return []; }
+              return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            } catch (e) { return []; }
           })(),
           // 2. AniList
           fetch('https://graphql.anilist.co', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              query: `query ($search: String) { Page(page: 1, perPage: 5) { media(search: $search, type: MANGA) { id title { romaji english } coverImage { extraLarge } chapters } } }`,
+              query: `query ($search: String) { Page(page: 1, perPage: 8) { media(search: $search, type: MANGA) { id title { romaji english } coverImage { extraLarge } chapters } } }`,
               variables: { search: q }
             })
           }).then(r => r.json()).catch(() => ({ data: { Page: { media: [] } } })),
@@ -263,66 +268,146 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
           searchHChan(q).catch(() => [])
         ]);
 
-        const dbItems = firestoreRes || [];
-        const aniMedia = aniRes.data?.Page?.media || [];
-        const hchanMedia = hchanRes || [];
+        const seenNames = new Set();
+        const finalHtmlItems = [];
 
-        if (dbItems.length === 0 && aniMedia.length === 0 && hchanMedia.length === 0) {
-          resultsBox.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted)">Нічого не знайдено</div>';
-          return;
-        }
-
-        let html = '';
-
-        // Prioritize database items
-        dbItems.forEach(m => {
-          html += `
-            <div class="ac-item db-match" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);background:rgba(var(--accent-rgb), 0.05)" 
-                 data-title="${escapeHtml(m.title)}" data-cover="${m.cover || ''}" data-chapters="${m.chapters || 0}" data-tid="${m.titleId}">
-              ${m.cover ? `<img src="${m.cover}" style="width:32px;height:45px;object-fit:cover;border-radius:4px">` : `<div style="width:32px;height:45px;background:var(--bg-hover);border-radius:4px"></div>`}
-              <div style="flex:1">
-                <div style="font-weight:600;font-size:0.9rem">${escapeHtml(m.title)}</div>
-                <div style="font-size:0.7rem;color:var(--accent2)">У базі ManhwaDB</div>
-              </div>
-            </div>`;
+        // 0. Process User's Existing Reviews (Highest Priority)
+        userReviews.forEach(ur => {
+           if (ur.title.toLowerCase().includes(q.toLowerCase())) {
+             const norm = normalize(ur.title);
+             if (seenNames.has(norm)) return;
+             seenNames.add(norm);
+             const cover = ur.coverBase64 || '';
+             
+             finalHtmlItems.push(`
+               <div class="ac-item" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);background:var(--bg-card);border-left:4px solid var(--accent)" 
+                    data-title="${escapeHtml(ur.title)}" data-cover="${cover}" data-chapters="${ur.chapters || 0}" data-tid="${ur.titleId}" data-editid="${ur.id}">
+                 ${cover ? `<img src="${cover}" style="width:32px;height:45px;object-fit:cover;border-radius:4px">` : `<div style="width:32px;height:45px;background:var(--bg-hover);border-radius:4px"></div>`}
+                 <div style="flex:1">
+                   <div style="font-weight:600;font-size:0.9rem;color:var(--accent)">${escapeHtml(ur.title)}</div>
+                   <div style="font-size:0.75rem;font-weight:600;color:var(--accent)">✏️ Ви вже писали (Натисніть щоб редагувати)</div>
+                 </div>
+               </div>`);
+           }
         });
 
+        // 1. Process Database Results (Highest Priority)
+        (firestoreRes || []).forEach(m => {
+          const title = m.title || m.anilist?.title || m.toongod?.title || 'Unknown';
+          const norm = normalize(title);
+          if (seenNames.has(norm)) return;
+          seenNames.add(norm);
+
+          const cover = m.anilist?.coverImage?.large || m.toongod?.cover || '';
+          const chapters = m.anilist?.chapters || m.toongod?.chapters || m.chapters || 0;
+          finalHtmlItems.push(`
+            <div class="ac-item db-match" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);background:rgba(var(--accent-rgb), 0.05)" 
+                 data-title="${escapeHtml(title)}" data-cover="${cover}" data-chapters="${chapters}" data-tid="${m.id}">
+              ${cover ? `<img src="${cover}" style="width:32px;height:45px;object-fit:cover;border-radius:4px">` : `<div style="width:32px;height:45px;background:var(--bg-hover);border-radius:4px"></div>`}
+              <div style="flex:1">
+                <div style="font-weight:600;font-size:0.9rem">${escapeHtml(title)}</div>
+                <div style="font-size:0.7rem;color:var(--accent2)">У базі ManhwaDB ${chapters ? `• ${chapters} глав` : ''}</div>
+              </div>
+            </div>`);
+        });
+
+        // 2. Process AniList Results
+        const aniMedia = aniRes.data?.Page?.media || [];
         aniMedia.forEach(m => {
           const t = m.title.english || m.title.romaji;
+          const norm = normalize(t);
+          if (seenNames.has(norm)) return;
+          seenNames.add(norm);
+
           const cover = m.coverImage?.extraLarge || '';
           const tid = `ani_${m.id}`;
-          html += `
+          finalHtmlItems.push(`
             <div class="ac-item" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);transition:0.1s" 
                  data-title="${escapeHtml(t)}" data-cover="${cover}" data-chapters="${m.chapters || 0}" data-tid="${tid}">
               ${cover ? `<img src="${cover}" style="width:32px;height:45px;object-fit:cover;border-radius:4px">` : `<div style="width:32px;height:45px;background:var(--bg-hover);border-radius:4px"></div>`}
               <div style="flex:1">
                 <div style="font-weight:500;font-size:0.9rem">${escapeHtml(t)}</div>
-                <div style="font-size:0.7rem;color:var(--text-muted)">AniList ${m.chapters ? `• ${m.chapters} глав` : ''}</div>
+                <div style="font-size:0.7rem;color:var(--accent2)">AniList ${m.chapters ? `• ${m.chapters} глав` : ''}</div>
               </div>
-            </div>`;
+            </div>`);
         });
 
-        hchanMedia.forEach(m => {
+        // 3. Fallback to MangaDex (WITH NSFW enabled)
+        if (aniRes.errors || finalHtmlItems.length < 5) {
+           try {
+             const ratings = ['safe', 'suggestive', 'erotica', 'pornographic'].map(r => `contentRating[]=${r}`).join('&');
+             const mdexRes = await fetch(`https://api.mangadex.org/manga?title=${encodeURIComponent(q)}&limit=10&includes[]=cover_art&${ratings}`).then(r => r.json());
+             (mdexRes.data || []).forEach(m => {
+               const titles = m.attributes.title;
+               const t = titles.en || Object.values(titles)[0];
+               const norm = normalize(t);
+               if (seenNames.has(norm)) return;
+               seenNames.add(norm);
+
+               const coverRel = m.relationships.find(r => r.type === 'cover_art');
+               const coverId = coverRel?.attributes?.fileName;
+               const coverUrl = coverId ? `https://uploads.mangadex.org/covers/${m.id}/${coverId}.256.jpg` : '';
+               const tid = m.attributes.links?.al ? `ani_${m.attributes.links.al}` : `mdex_${m.id}`;
+               const isAdult = m.attributes.contentRating === 'pornographic' || m.attributes.contentRating === 'erotica';
+               const chapters = m.attributes.lastChapter || 0;
+               
+               finalHtmlItems.push(`
+                 <div class="ac-item" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);transition:0.1s" 
+                      data-title="${escapeHtml(t)}" data-cover="${coverUrl}" data-chapters="${chapters}" data-tid="${tid}">
+                   ${coverUrl ? `<img src="${coverUrl}" style="width:32px;height:45px;object-fit:cover;border-radius:4px">` : `<div style="width:32px;height:45px;background:var(--bg-hover);border-radius:4px"></div>`}
+                   <div style="flex:1">
+                     <div style="font-weight:500;font-size:0.9rem">${escapeHtml(t)} ${isAdult ? '🔞' : ''}</div>
+                     <div style="font-size:0.7rem;color:var(--accent3)">MangaDex ${isAdult ? '(18+)' : ''} ${chapters ? `• ${chapters} глав` : ''}</div>
+                   </div>
+                 </div>`);
+             });
+           } catch (e) { /* ignore */ }
+        }
+
+        // 4. H-Chan
+        (hchanRes || []).forEach(m => {
+          const norm = normalize(m.title);
+          if (seenNames.has(norm)) return;
+          seenNames.add(norm);
+
           const tid = `hchan_${btoa(m.url).substring(0, 16)}`;
-          html += `
+          finalHtmlItems.push(`
             <div class="ac-item" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);transition:0.1s" 
                  data-title="${escapeHtml(m.title)}" data-url="${m.url}" data-tid="${tid}">
               <div style="width:32px;height:45px;background:var(--accent-soft);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px">🔞</div>
               <div style="flex:1">
                 <div style="font-weight:500;font-size:0.9rem">${escapeHtml(m.title)}</div>
-                <div style="font-size:0.7rem;color:var(--accent2)">H-Chan</div>
+                <div style="font-size:0.7rem;color:#ff69b4">H-Chan 18+</div>
               </div>
-            </div>`;
+            </div>`);
         });
 
-        resultsBox.innerHTML = html;
+        let warning = '';
+        if (aniRes.errors && (aniRes.errors[0]?.status === 403 || aniRes.errors[0]?.message?.includes('disabled'))) {
+           warning = '<div style="padding:6px 12px; font-size:0.7rem; background:rgba(255,0,0,0.05); color:#e63946; border-bottom:1px solid var(--border)">⚠️ AniList API лежить. Шукаємо в MangaDex та базі.</div>';
+        }
+
+        if (finalHtmlItems.length === 0) {
+          resultsBox.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted)">Нічого не знайдено</div>';
+        } else {
+          resultsBox.innerHTML = warning + finalHtmlItems.join('');
+        }
 
         resultsBox.querySelectorAll('.ac-item').forEach(item => {
           item.addEventListener('mouseenter', () => item.style.background = 'var(--bg-hover)');
-          item.addEventListener('mouseleave', () => item.style.background = item.classList.contains('db-match') ? 'rgba(var(--accent-rgb), 0.05)' : '');
+          item.addEventListener('mouseleave', () => {
+             if (item.classList.contains('db-match')) item.style.background = 'rgba(var(--accent-rgb), 0.05)';
+             else if (item.dataset.editid) item.style.background = 'var(--bg-card)';
+             else item.style.background = '';
+          });
           item.addEventListener('click', () => {
             if (item.dataset.url && !item.dataset.tid) {
               window.open(item.dataset.url, '_blank');
+              return;
+            }
+            if (item.dataset.editid && !existing) {
+              navigate(`review-edit/${item.dataset.editid}`);
+              showToast('Редирект на редагування вашої рецензії...', 'info');
               return;
             }
             titleInput.value = item.dataset.title;

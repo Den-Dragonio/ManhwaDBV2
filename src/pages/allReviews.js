@@ -40,10 +40,10 @@ export async function renderAllReviews({ userId }) {
           <button class="btn btn-secondary btn-sm sort-btn" data-sort="status" data-dir="desc">📌 Статус ⬇️</button>
           <button class="btn btn-secondary btn-sm sort-btn" data-sort="chapters" data-dir="desc">📚 Глави ⬇️</button>
         </div>
-        <select class="input" id="tag-filter-select" style="width:100%;padding:8px 10px;height:auto">
-          <!-- Tag options injected dynamically -->
-        </select>
-        <input class="input" id="all-reviews-search" placeholder="🔍 Пошук..." style="width:100%">
+        <input class="input" id="all-reviews-search" placeholder="🔍 Пошук..." style="width:100%; margin-bottom: 8px;">
+        <div id="tag-filter-wrap" style="display:flex;flex-wrap:wrap;gap:6px;width:100%">
+          <!-- Tag buttons injected dynamically -->
+        </div>
       </div>
 
       <div id="all-reviews-grid" style="display:flex;flex-direction:column;gap:10px">
@@ -62,9 +62,9 @@ export async function renderAllReviews({ userId }) {
   let currentSort = 'rating';
   let currentDir = 'desc';
   let currentSearch = '';
-  let currentTag = '';
+  let activeTags = new Set();
   const grid = document.getElementById('all-reviews-grid');
-  const tagSelect = document.getElementById('tag-filter-select');
+  const tagWrap = document.getElementById('tag-filter-wrap');
 
   // Populate dynamic tags
   const tagCounts = {};
@@ -79,15 +79,29 @@ export async function renderAllReviews({ userId }) {
   });
 
   const tagEntries = Object.values(tagCounts).sort((a, b) => b.count - a.count);
-  let tagHtml = '<option value="">Всі теги</option>';
+  let tagHtml = '';
   tagEntries.forEach(tg => {
-    tagHtml += `<option value="${escapeHtml(tg.name.toLowerCase())}">${escapeHtml(tg.name)} (${tg.count})</option>`;
+    tagHtml += `<button class="preset-tag filter-tag-btn" data-tag="${escapeHtml(tg.name.toLowerCase())}">${formatTag(tg.name)} <span style="opacity:0.6;font-size:0.8em">(${tg.count})</span></button>`;
   });
-  tagSelect.innerHTML = tagHtml;
+  tagWrap.innerHTML = tagHtml;
 
-  tagSelect.addEventListener('change', e => {
-    currentTag = e.target.value.trim().toLowerCase();
-    applySortAndFilter();
+  // Tag toggle logic
+  tagWrap.querySelectorAll('.filter-tag-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tag = btn.dataset.tag;
+      if (activeTags.has(tag)) {
+        activeTags.delete(tag);
+        btn.classList.remove('active');
+        btn.style.borderColor = '';
+        btn.style.background = '';
+      } else {
+        activeTags.add(tag);
+        btn.classList.add('active');
+        btn.style.borderColor = 'var(--accent)';
+        btn.style.background = 'rgba(var(--accent-rgb), 0.1)';
+      }
+      applySortAndFilter();
+    });
   });
 
   const getSortVal = (r, by) => {
@@ -108,8 +122,12 @@ export async function renderAllReviews({ userId }) {
       list = list.filter(r => r.title.toLowerCase().includes(currentSearch));
     }
 
-    if (currentTag) {
-      list = list.filter(r => (r.tags || []).some(t => t.trim().toLowerCase() === currentTag));
+    if (activeTags.size > 0) {
+      list = list.filter(r => {
+         const itemTags = (r.tags || []).map(t => t.trim().toLowerCase());
+         // AND logic: Review must have ALL selected tags
+         return Array.from(activeTags).every(activeTag => itemTags.includes(activeTag));
+      });
     }
 
     list.sort((a, b) => {
