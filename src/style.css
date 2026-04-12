@@ -325,7 +325,7 @@ body::before {
   display: inline-flex; 
   align-items: center; 
   gap: 4px; 
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   max-width: 100%;
 }
 .rating-stars-wrapper {
@@ -347,15 +347,16 @@ body::before {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 1;
   cursor: pointer;
   transition: transform 0.1s;
 }
 
 /* Mobile adjustments for stars */
 @media (max-width: 480px) {
-  .star { width: 22px; height: 22px; }
+  .star { width: 18px; height: 18px; }
   .star-lg { width: 32px; height: 32px; }
   .rating-stars-wrapper { gap: 4px; padding: 12px; }
 }
