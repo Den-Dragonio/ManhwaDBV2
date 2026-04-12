@@ -31,28 +31,61 @@ def init_firebase():
         firebase_admin.initialize_app(cred)
     return firestore.client()
 
-def get_mdex_ids_from_db(db):
-    """Collects unique MangaDex IDs from manga_metadata and reviews."""
-    mdex_ids = {} # {title_id: mdex_id}
+def get_all_titles_to_process(db):
+    """Collects unique title IDs and names from reviews to ensure all titles get MD IDs."""
+    titles = {} # {title_id: {"name": str, "md_id": str}}
     
     # 1. From metadata
     meta_ref = db.collection('manga_metadata').stream()
     for doc in meta_ref:
         data = doc.to_dict()
-        md_id = data.get('mangadex_id')
-        if md_id:
-            mdex_ids[doc.id] = md_id
+        titles[doc.id] = {
+            "name": data.get('title') or data.get('anilist', {}).get('title', {}).get('english'),
+            "md_id": data.get('mangadex_id')
+        }
 
-    # 2. From reviews (in case metadata wasn't created yet)
+    # 2. From reviews
     reviews_ref = db.collection('reviews').stream()
     for doc in reviews_ref:
         data = doc.to_dict()
         tid = data.get('titleId')
-        md_id = data.get('mangadex_id')
-        if tid and md_id and tid not in mdex_ids:
-            mdex_ids[tid] = md_id
+        if tid:
+            if tid not in titles:
+                titles[tid] = {"name": data.get('title'), "md_id": data.get('mangadex_id')}
+            elif not titles[tid]["md_id"] and data.get('mangadex_id'):
+                titles[tid]["md_id"] = data.get('mangadex_id')
             
-    return mdex_ids
+    return titles
+
+def discover_mangadex_id(title_id, title_name):
+    """Try to find MD ID via AniList link or Title search."""
+    # Step A: By AniList ID (most accurate)
+    if title_id.startswith('ani_'):
+        al_id = title_id.replace('ani_', '')
+        # New API format: includedExternalIds[]=al:12345
+        url = f"https://api.mangadex.org/manga?includedExternalIds[]=al:{al_id}"
+        try:
+            resp = requests.get(url, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json().get('data', [])
+                if data:
+                    print(f"      🔍 Discovered via AniList ID: {data[0]['id']}", flush=True)
+                    return data[0]['id']
+        except: pass
+
+    # Step B: By Title search
+    if title_name:
+        url = f"https://api.mangadex.org/manga?title={quote(title_name)}&limit=1"
+        try:
+            resp = requests.get(url, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json().get('data', [])
+                if data:
+                    print(f"      🔍 Discovered via Title: {data[0]['id']}", flush=True)
+                    return data[0]['id']
+        except: pass
+        
+    return None
 
 def fetch_mangadex_stats(mdex_id):
     """Fetches stats (rating, follows) directly from MangaDex API."""
@@ -69,8 +102,7 @@ def fetch_mangadex_stats(mdex_id):
         rating = stats.get('rating', {}).get('average')
         follows = stats.get('follows', 0)
         
-        # Step 2: Get basic info (Author/Artist/Genres) if needed
-        # We'll just fetch tags and creators
+        # Step 2: Get basic info (Author/Artist/Genres)
         info_url = f"https://api.mangadex.org/manga/{mdex_id}?includes[]=author&includes[]=artist"
         info_resp = requests.get(info_url, timeout=15)
         m_data = {}
@@ -79,8 +111,9 @@ def fetch_mangadex_stats(mdex_id):
             attr = m.get('attributes', {})
             m_data['genres'] = [t.get('attributes', {}).get('name', {}).get('en') for t in attr.get('tags', [])]
             
-            author_rel = next((r for r in m.get('relationships', []) if r['type'] == 'author'), None)
-            artist_rel = next((r for r in m.get('relationships', []) if r['type'] == 'artist'), None)
+            rels = m.get('relationships', [])
+            author_rel = next((r for r in rels if r['type'] == 'author'), None)
+            artist_rel = next((r for r in rels if r['type'] == 'artist'), None)
             
             m_data['author'] = author_rel.get('attributes', {}).get('name') if author_rel else None
             m_data['artist'] = artist_rel.get('attributes', {}).get('name') if artist_rel else None
@@ -95,69 +128,73 @@ def fetch_mangadex_stats(mdex_id):
             'year': m_data.get('year')
         }
     except Exception as e:
-        print(f"      ⚠️  MangaDex API Error: {e}", flush=True)
+        print(f"      ⚠️  MangaDex API Error: {mdex_id}: {e}", flush=True)
         return None
 
-def process_title(db, title_id, mdex_id):
+def process_title(db, title_id, info, args):
     """Worker for parallel processing."""
-    print(f"── Processing {title_id} (MD: {mdex_id}) ──", flush=True)
+    md_id = info.get('md_id')
+    tname = info.get('name')
     
-    stats = fetch_mangadex_stats(mdex_id)
+    # Discovery if ID missing
+    if not md_id:
+        print(f"── Discovering ID for {title_id} ({tname}) ──", flush=True)
+        md_id = discover_mangadex_id(title_id, tname)
+        if not md_id:
+            print(f"   ⏭️  Could not find MangaDex ID.", flush=True)
+            return False
+    else:
+        print(f"── Processing {title_id} (MD: {md_id}) ──", flush=True)
+    
+    stats = fetch_mangadex_stats(md_id)
     if stats:
         doc_ref = db.collection('manga_metadata').document(title_id)
-        
-        # Merge stats into 'mangadex' field
         update_data = {
             'mangadex': stats,
+            'mangadex_id': md_id,
             'last_updated_md': firestore.SERVER_TIMESTAMP
         }
-        
-        # Also ensure top-level mangadex_id is set
-        update_data['mangadex_id'] = mdex_id
-        
         doc_ref.set(update_data, merge=True)
         print(f"   ✅ Saved: score={stats['score']} | follows={stats['popularity']}", flush=True)
         return True
-    else:
-        print(f"   ❌ Failed to fetch stats for {mdex_id}", flush=True)
-        return False
+    return False
 
 def main():
+    parser = argparse.ArgumentParser(description='MangaDex Stats Scraper')
+    parser.add_argument('--workers', type=int, default=3, help='Max workers')
+    args = parser.parse_args()
+
     print("=" * 65, flush=True)
     print(f"MangaDex Stats Scraper — {datetime.now().strftime('%Y-%m-%d %H:%M')}", flush=True)
     print("=" * 65, flush=True)
 
     db = init_firebase()
-    if not db:
-        sys.exit(1)
+    if not db: sys.exit(1)
 
-    # Collect IDs
-    mdex_map = get_mdex_ids_from_db(db)
-    if not mdex_map:
-        print("📭 No MangaDex IDs found to process.", flush=True)
+    # Collect all titles
+    titles_map = get_all_titles_to_process(db)
+    if not titles_map:
+        print("📭 No titles found to process.", flush=True)
         return
 
-    print(f"🔍 Found {len(mdex_map)} IDs to update.", flush=True)
+    print(f"🔍 Found {len(titles_map)} titles to check/update.", flush=True)
 
     success = 0
     failed = 0
     
-    # Process in parallel
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as executor:
         future_to_id = {
-            executor.submit(process_title, db, tid, mid): tid 
-            for tid, mid in mdex_map.items()
+            executor.submit(process_title, db, tid, info, args): tid 
+            for tid, info in titles_map.items()
         }
-        
         for future in concurrent.futures.as_completed(future_to_id):
-            if future.result():
-                success += 1
-            else:
-                failed += 1
+            if future.result(): success += 1
+            else: failed += 1
 
     print("\n" + "=" * 65, flush=True)
-    print(f"Done! ✅ {success} updated  ❌ {failed} failed", flush=True)
+    print(f"Done! ✅ {success} synced  ❌ {failed} failed", flush=True)
     print("=" * 65, flush=True)
+
 
 if __name__ == "__main__":
     main()
