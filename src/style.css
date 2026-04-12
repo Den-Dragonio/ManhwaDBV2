@@ -342,6 +342,17 @@ body::before {
   border-color: var(--border-accent);
 }
 
+.star {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
 /* Mobile adjustments for stars */
 @media (max-width: 480px) {
   .star { width: 22px; height: 22px; }
