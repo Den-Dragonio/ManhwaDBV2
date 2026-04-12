@@ -28,6 +28,14 @@ from urllib.parse import quote
 import concurrent.futures
 from datetime import datetime, timedelta
 import cloudscraper
+import threading
+import random
+
+# Global safety flags for Wayback Machine
+WAYBACK_LOCK = threading.Lock()
+WAYBACK_FAILURES = 0
+MAX_STREAK_FAILURES = 5
+CB_ENABLED = False # Circuit Breaker status
 
 # Force UTF-8 for stdout/stderr to prevent crashes in minimal CI environments
 if sys.stdout.encoding != 'utf-8':
@@ -155,6 +163,11 @@ def needs_update(db, title_id, force=False):
 # ── WAYBACK MACHINE ──────────────────────────────────────────────────────────
 def get_wayback_url(original_url, retries=3):
     """Find the latest Wayback Machine snapshot for a URL. Returns WB URL or None."""
+    global WAYBACK_FAILURES, CB_ENABLED
+    
+    if CB_ENABLED:
+        return None
+
     cdx_url = 'https://web.archive.org/cdx/search/cdx'
     # Strip protocol for CDX search
     clean_url = re.sub(r'^https?://', '', original_url)
@@ -164,33 +177,56 @@ def get_wayback_url(original_url, retries=3):
         'limit': '-5',  # Last 5 snapshots
         'fl': 'timestamp,statuscode',
     }
-    for attempt in range(retries):
-        try:
-            resp = requests.get(cdx_url, params=params, timeout=30)
-            if resp.status_code == 429:
-                wait = (attempt + 1) * 10
-                print(f"   ⏳ Rate limited, waiting {wait}s...")
-                time.sleep(wait)
-                continue
-            if resp.status_code != 200:
+
+    # Enforce serial access to Archive.org via LOCK
+    with WAYBACK_LOCK:
+        for attempt in range(retries):
+            try:
+                # Extra small delay between requests even with lock
+                time.sleep(1 + random.random())
+                
+                resp = requests.get(cdx_url, params=params, timeout=30)
+                
+                if resp.status_code == 429:
+                    wait = (attempt + 1) * 15
+                    print(f"   ⏳ Wayback Rate limited (429), waiting {wait}s...")
+                    time.sleep(wait)
+                    continue
+                
+                if resp.status_code != 200:
+                    return None
+                    
+                data = resp.json()
+                if len(data) <= 1:  # Only header row
+                    WAYBACK_FAILURES = 0 # Success (empty but valid resp)
+                    return None
+                    
+                # Find latest with 200 status
+                for row in reversed(data[1:]):
+                    if row[1] == '200':
+                        ts = row[0]
+                        WAYBACK_FAILURES = 0 # Reset counter on success
+                        return f"https://web.archive.org/web/{ts}/{original_url}"
+                
+                WAYBACK_FAILURES = 0
                 return None
-            data = resp.json()
-            if len(data) <= 1:  # Only header row
-                return None
-            # Find latest with 200 status
-            for row in reversed(data[1:]):
-                if row[1] == '200':
-                    ts = row[0]
-                    return f"https://web.archive.org/web/{ts}/{original_url}"
-            return None
-        except Exception as e:
-            if attempt < retries - 1:
-                # Exponential backoff + jitter
-                wait = (attempt + 1) * 7 + (attempt * 5)
-                print(f"   ⏳ Retry {attempt+1}/{retries} after {wait}s... ({type(e).__name__})", flush=True)
-                time.sleep(wait)
-            else:
-                print(f"   ❌ Wayback CDX error after {retries} retries: {e}", flush=True)
+                
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                WAYBACK_FAILURES += 1
+                if WAYBACK_FAILURES >= MAX_STREAK_FAILURES:
+                    print(f"\n🛑 [CIRCUIT BREAKER] Too many Wayback failures ({WAYBACK_FAILURES}). Skipping Wayback for this run.")
+                    CB_ENABLED = True
+                    return None
+                
+                if attempt < retries - 1:
+                    wait = (attempt + 1) * 10 + (attempt * 5)
+                    print(f"   ⏳ Wayback Retry {attempt+1}/{retries} after {wait}s... ({type(e).__name__})", flush=True)
+                    time.sleep(wait)
+                else:
+                    print(f"   ❌ Wayback CDX error after {retries} retries: {e}", flush=True)
+                    return None
+            except Exception as e:
+                print(f"   ⚠️ Unexpected Wayback error: {e}")
                 return None
     return None
 
