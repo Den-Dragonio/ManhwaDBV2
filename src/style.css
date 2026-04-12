@@ -325,6 +325,8 @@ body::before {
   display: inline-flex; 
   align-items: center; 
   gap: 4px; 
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 .rating-stars-wrapper {
   display: flex;
@@ -340,16 +342,13 @@ body::before {
   border-color: var(--border-accent);
 }
 
-.star {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  cursor: pointer;
-  transition: transform 0.1s;
+/* Mobile adjustments for stars */
+@media (max-width: 480px) {
+  .star { width: 22px; height: 22px; }
+  .star-lg { width: 32px; height: 32px; }
+  .rating-stars-wrapper { gap: 4px; padding: 12px; }
 }
+
 .star-lg { 
   width: 42px; 
   height: 42px; 

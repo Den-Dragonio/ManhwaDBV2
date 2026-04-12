@@ -26,7 +26,7 @@ import time
 import argparse
 from urllib.parse import quote
 import concurrent.futures
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import cloudscraper
 import threading
 import random
@@ -147,11 +147,11 @@ def needs_update(db, title_id, force=False):
         if isinstance(last_updated, datetime):
             lu_dt = last_updated
         else:
-            # Handle if it's already a datetime or other format
-            try: lu_dt = last_updated.replace(tzinfo=None)
-            except: lu_dt = datetime.min
+            # Fallback if somehow not a datetime
+            lu_dt = datetime.min.replace(tzinfo=timezone.utc)
             
-        if datetime.now() - lu_dt < timedelta(hours=24):
+        # lu_dt from Firestore is offset-aware (UTC). Use aware now() to compare.
+        if datetime.now(timezone.utc) - lu_dt < timedelta(hours=24):
             # Only skip if essential data is already present
             if data.get('official_rating') and data.get('status'):
                 return False

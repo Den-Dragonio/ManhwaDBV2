@@ -284,7 +284,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
              
              finalHtmlItems.push(`
                <div class="ac-item" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);background:var(--bg-card);border-left:4px solid var(--accent)" 
-                    data-title="${escapeHtml(ur.title)}" data-cover="${cover}" data-chapters="${ur.chapters || 0}" data-tid="${ur.titleId}" data-editid="${ur.id}">
+                    data-title="${escapeHtml(ur.title)}" data-cover="${cover}" data-chapters="${ur.chapters || 0}" data-tid="${ur.titleId}" data-editid="${ur.id}" data-search-names="${escapeHtml(JSON.stringify(ur.search_names || []))}">
                  ${cover ? `<img src="${cover}" style="width:32px;height:45px;object-fit:cover;border-radius:4px">` : `<div style="width:32px;height:45px;background:var(--bg-hover);border-radius:4px"></div>`}
                  <div style="flex:1">
                    <div style="font-weight:600;font-size:0.9rem;color:var(--accent)">${escapeHtml(ur.title)}</div>
