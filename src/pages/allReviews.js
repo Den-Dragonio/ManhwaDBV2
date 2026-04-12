@@ -107,7 +107,7 @@ export async function renderAllReviews({ userId }) {
   const getSortVal = (r, by) => {
     if (by === 'rating') return Number(r.rating) || 0;
     if (by === 'chapters') return Number(r.chapters) || 0;
-    if (by === 'date') return r.date ? new Date(r.date).getTime() : 0;
+    if (by === 'date') return new Date(r.date || r.createdAt).getTime();
     if (by === 'status') {
       const w = { done: 4, reading: 3, planned: 2, dropped: 1 };
       return w[r.status] || 0;
@@ -136,10 +136,11 @@ export async function renderAllReviews({ userId }) {
 
       let diff = va > vb ? 1 : (va < vb ? -1 : 0);
       if (diff === 0) {
-        if (currentSort !== 'date') {
-          diff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-          return currentDir === 'desc' ? diff : -diff;
-        }
+        const da = new Date(a.date || a.createdAt);
+        const dbDate = new Date(b.date || b.createdAt);
+        diff = dbDate.getTime() - da.getTime();
+        if (diff === 0) diff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        return currentDir === 'desc' ? diff : -diff;
       }
       return currentDir === 'desc' ? -diff : diff;
     });

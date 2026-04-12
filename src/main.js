@@ -9,7 +9,7 @@ import { auth, db } from './firebase.js';
 import { Users, Session } from './store.js';
 import { renderHeader } from './components/header.js';
 import { defineRoute, startRouter, onBeforeNavigate } from './router.js';
-import { showLoader, showToast } from './utils.js';
+import { showLoader, showToast, initTheme } from './utils.js';
 
 // ---- Page imports ----
 import { renderHome } from './pages/home.js';
@@ -21,6 +21,10 @@ import { renderProfile } from './pages/profile.js';
 import { renderReview } from './pages/review.js';
 import { renderAllReviews } from './pages/allReviews.js';
 import { renderTitle } from './pages/title.js';
+
+
+// Boot theme
+initTheme();
 
 let routerStarted = false;
 

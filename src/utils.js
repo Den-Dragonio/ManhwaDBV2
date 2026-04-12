@@ -213,3 +213,39 @@ export function showToast(msg, type = 'info', opts = {}) {
 export function showLoader(container) {
   container.innerHTML = `<div style="display:flex;justify-content:center;padding:80px"><div class="loader-spinner"></div></div>`;
 }
+
+// ============================================================
+// Theme Management
+// ============================================================
+let _systemThemeListener = null;
+
+export function applyTheme(theme) {
+  const root = document.documentElement;
+  localStorage.setItem('theme', theme);
+
+  if (_systemThemeListener) {
+    _systemThemeListener.removeEventListener('change', _systemThemeChangeHandler);
+    _systemThemeListener = null;
+  }
+
+  if (theme === 'system') {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    root.setAttribute('data-theme', mq.matches ? 'dark' : 'light');
+    
+    _systemThemeListener = mq;
+    _systemThemeListener.addEventListener('change', _systemThemeChangeHandler);
+  } else {
+    root.setAttribute('data-theme', theme);
+  }
+}
+
+function _systemThemeChangeHandler(e) {
+  if (localStorage.getItem('theme') === 'system') {
+    document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+  }
+}
+
+export function initTheme() {
+  const saved = localStorage.getItem('theme') || 'system';
+  applyTheme(saved);
+}

@@ -3,7 +3,7 @@
 // ============================================================
 
 import { Users, Reviews, Playlists, Session } from '../store.js';
-import { compressAvatar, starsHtml, avatarHtml, timeAgo, formatDate, escapeHtml, showToast, showLoader } from '../utils.js';
+import { compressAvatar, starsHtml, avatarHtml, timeAgo, formatDate, escapeHtml, showToast, showLoader, applyTheme } from '../utils.js';
 import { navigate } from '../router.js';
 import { changePassword, deleteCurrentUser } from '../auth.js';
 import { doc, deleteDoc, collection, getDocs, query, where, writeBatch } from 'firebase/firestore';
@@ -310,7 +310,8 @@ function showEditModal(user) {
           <div class="form-group" style="margin-bottom:14px">
             <label class="form-label">Тема сайту</label>
             <select class="select" id="edit-theme">
-              <option value="dark" ${localStorage.getItem('theme') !== 'light' ? 'selected' : ''}>🌙 Темна тема</option>
+              <option value="system" ${localStorage.getItem('theme') === 'system' || !localStorage.getItem('theme') ? 'selected' : ''}>🖥️ Системна тема</option>
+              <option value="dark" ${localStorage.getItem('theme') === 'dark' ? 'selected' : ''}>🌙 Темна тема</option>
               <option value="light" ${localStorage.getItem('theme') === 'light' ? 'selected' : ''}>☀️ Світла тема</option>
             </select>
           </div>
@@ -377,8 +378,7 @@ function showEditModal(user) {
     saveBtn.disabled = true; saveBtn.textContent = 'Збереження...';
 
     // Apply theme & push settings
-    localStorage.setItem('theme', theme);
-    document.documentElement.setAttribute('data-theme', theme);
+    applyTheme(theme);
     localStorage.setItem('push_enabled', pushEnabled);
 
     if (oldPw || newPw) {

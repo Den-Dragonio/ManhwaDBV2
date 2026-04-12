@@ -94,7 +94,12 @@ export const Users = {
 export const Reviews = {
   all: async () => {
     const snap = await getDocs(collection(db, 'reviews'));
-    return normalizeDocs(snap).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return normalizeDocs(snap).sort((a, b) => {
+      const da = new Date(a.date || a.createdAt);
+      const dbDate = new Date(b.date || b.createdAt);
+      const diff = dbDate - da;
+      return diff !== 0 ? diff : new Date(b.createdAt) - new Date(a.createdAt);
+    });
   },
   byId: async (id) => {
     const snap = await getDoc(doc(db, 'reviews', id));
@@ -103,7 +108,12 @@ export const Reviews = {
   byUser: async (userId) => {
     const q = query(collection(db, 'reviews'), where('userId', '==', userId));
     const snap = await getDocs(q);
-    return normalizeDocs(snap).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return normalizeDocs(snap).sort((a, b) => {
+      const da = new Date(a.date || a.createdAt);
+      const dbDate = new Date(b.date || b.createdAt);
+      const diff = dbDate - da;
+      return diff !== 0 ? diff : new Date(b.createdAt) - new Date(a.createdAt);
+    });
   },
   topRated: async (n = 10) => {
     // Fetch recent reviews to aggregate
@@ -131,7 +141,12 @@ export const Reviews = {
   byTitle: async (titleId) => {
     const q = query(collection(db, 'reviews'), where('titleId', '==', titleId));
     const snap = await getDocs(q);
-    return normalizeDocs(snap).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return normalizeDocs(snap).sort((a, b) => {
+      const da = new Date(a.date || a.createdAt);
+      const dbDate = new Date(b.date || b.createdAt);
+      const diff = dbDate - da;
+      return diff !== 0 ? diff : new Date(b.createdAt) - new Date(a.createdAt);
+    });
   },
   exists: async (userId, titleId) => {
     const q = query(collection(db, 'reviews'), 

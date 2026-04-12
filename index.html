@@ -6,8 +6,15 @@
     <meta name="referrer" content="no-referrer" />
     <script>
       (function() {
-        const t = localStorage.getItem('theme');
-        if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+        const t = localStorage.getItem('theme') || 'system';
+        if (t === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light');
+        } else if (t === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        } else {
+          const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+        }
       })();
     </script>
     <meta name="description" content="ManhwaDB — ваша персональна база рецензій та рейтингів манхв. Знаходьте, читайте та оцінюйте улюблені твори." />
