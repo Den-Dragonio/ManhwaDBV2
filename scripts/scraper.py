@@ -438,9 +438,9 @@ def main():
     if not db:
         sys.exit(1)
 
-    print("=" * 65)
-    print("ToonGod Scraper (Wayback) — Syncing ALL titles to Firestore")
-    print("=" * 65)
+    print("=" * 65, flush=True)
+    print("ToonGod Scraper (Wayback) — Syncing ALL titles to Firestore", flush=True)
+    print("=" * 65, flush=True)
 
     # Step 1: Collect all unique titles from reviews
     all_titles = get_all_titles(db)

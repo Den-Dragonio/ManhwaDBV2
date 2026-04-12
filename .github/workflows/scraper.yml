@@ -36,7 +36,7 @@ jobs:
           echo "$FIREBASE_KEY" > scripts/serviceAccount.json
 
       - name: Запуск AniList Scraper (Нові тайтли)
-        run: python scripts/scraper_anilist.py
+        run: python -u scripts/scraper_anilist.py
 
       - name: Запуск ToonGod Scraper (Нові тайтли)
-        run: python scripts/scraper.py
+        run: python -u scripts/scraper.py
