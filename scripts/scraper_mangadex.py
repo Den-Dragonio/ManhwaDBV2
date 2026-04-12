@@ -72,6 +72,7 @@ def get_all_titles_to_process(db):
 
 def discover_mangadex_id(title_id, title_name):
     """Try to find MD ID via AniList link or Title search."""
+    prefix = f"[{title_id}]"
     # Step A: By AniList ID (most accurate)
     if title_id.startswith('ani_'):
         al_id = title_id.replace('ani_', '')
@@ -82,7 +83,7 @@ def discover_mangadex_id(title_id, title_name):
             if resp.status_code == 200:
                 data = resp.json().get('data', [])
                 if data:
-                    print(f"      🔍 Discovered via AniList ID: {data[0]['id']}", flush=True)
+                    print(f"   {prefix} 🔍 Discovered via AniList ID: {data[0]['id']}", flush=True)
                     return data[0]['id']
         except: pass
 
@@ -94,35 +95,37 @@ def discover_mangadex_id(title_id, title_name):
             if resp.status_code == 200:
                 data = resp.json().get('data', [])
                 if data:
-                    print(f"      🔍 Discovered via Title: {data[0]['id']}", flush=True)
+                    print(f"   {prefix} 🔍 Discovered via Title: {data[0]['id']}", flush=True)
                     return data[0]['id']
         except: pass
         
     return None
 
-def fetch_mangadex_stats(mdex_id):
+def fetch_mangadex_stats(md_id, title_id="?"):
     """Fetches stats (rating, follows) directly from MangaDex API."""
+    prefix = f"[{title_id}]"
     try:
         # Step 1: Get Statistics
-        stats_url = f"https://api.mangadex.org/statistics/manga/{mdex_id}"
+        stats_url = f"https://api.mangadex.org/statistics/manga/{md_id}"
         resp = requests.get(stats_url, timeout=15)
         if resp.status_code != 200:
             return None
         
         data = resp.json()
-        stats = data.get('statistics', {}).get(mdex_id, {})
+        stats = data.get('statistics', {}).get(md_id, {})
         
         rating = stats.get('rating', {}).get('average')
         follows = stats.get('follows', 0)
         
         # Step 2: Get basic info (Author/Artist/Genres)
-        info_url = f"https://api.mangadex.org/manga/{mdex_id}?includes[]=author&includes[]=artist"
+        info_url = f"https://api.mangadex.org/manga/{md_id}?includes[]=author&includes[]=artist"
         info_resp = requests.get(info_url, timeout=15)
         m_data = {}
         if info_resp.status_code == 200:
             m = info_resp.json().get('data', {})
             attr = m.get('attributes', {})
-            m_data['genres'] = [t.get('attributes', {}).get('name', {}).get('en') for t in attr.get('tags', [])]
+            genres = [t.get('attributes', {}).get('name', {}).get('en') for t in attr.get('tags', [])]
+            m_data['genres'] = [g for g in genres if g]
             
             rels = m.get('relationships', [])
             author_rel = next((r for r in rels if r['type'] == 'author'), None)
@@ -141,25 +144,26 @@ def fetch_mangadex_stats(mdex_id):
             'year': m_data.get('year')
         }
     except Exception as e:
-        print(f"      ⚠️  MangaDex API Error: {mdex_id}: {e}", flush=True)
+        print(f"   {prefix} ⚠️  MangaDex API Error: {md_id}: {e}", flush=True)
         return None
 
 def process_title(db, title_id, info, args):
     """Worker for parallel processing."""
     md_id = info.get('md_id')
     tname = info.get('name')
+    prefix = f"[{title_id}]"
     
     # Discovery if ID missing
     if not md_id:
-        print(f"── Discovering ID for {title_id} ({tname}) ──", flush=True)
+        print(f"── {prefix} Discovering ID for '{tname}' ──", flush=True)
         md_id = discover_mangadex_id(title_id, tname)
         if not md_id:
-            print(f"   ⏭️  Could not find MangaDex ID.", flush=True)
+            print(f"   {prefix} ⏭️  Could not find MangaDex ID.", flush=True)
             return False
     else:
-        print(f"── Processing {title_id} (MD: {md_id}) ──", flush=True)
+        print(f"── {prefix} Processing (Current ID: {md_id}) ──", flush=True)
     
-    stats = fetch_mangadex_stats(md_id)
+    stats = fetch_mangadex_stats(md_id, title_id)
     if stats:
         doc_ref = db.collection('manga_metadata').document(title_id)
         update_data = {
@@ -168,7 +172,7 @@ def process_title(db, title_id, info, args):
             'last_updated_md': firestore.SERVER_TIMESTAMP
         }
         doc_ref.set(update_data, merge=True)
-        print(f"   ✅ Saved: score={stats['score']} | follows={stats['popularity']}", flush=True)
+        print(f"   {prefix} ✅ Saved: score={stats['score']} | follows={stats['popularity']}", flush=True)
         return True
     return False
 
@@ -205,7 +209,10 @@ def main():
             else: failed += 1
 
     print("\n" + "=" * 65, flush=True)
-    print(f"Done! ✅ {success} synced  ❌ {failed} failed", flush=True)
+    print(f"Done! Pipeline finished.", flush=True)
+    print(f"📊 Total processed: {len(titles_map)}")
+    print(f"✅ Successfully synced: {success}")
+    print(f"❌ Failed/Skipped: {failed}")
     print("=" * 65, flush=True)
 
 

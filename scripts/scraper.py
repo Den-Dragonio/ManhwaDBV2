@@ -539,9 +539,10 @@ def process_single_title(db, title_id, title_name, args):
     """Worker function for parallel processing."""
     # Stagger requests to avoid bursts hitting Archive.org
     import random
+    prefix = f"[{title_id}]"
     time.sleep(random.random() * 2)
 
-    print(f"\n── {title_id} ({title_name or '?'}) ──", flush=True)
+    print(f"── {prefix} Processing '{title_name or '?'}' ──", flush=True)
 
     # Find URL
     url = TITLE_ID_TO_URL.get(title_id)
@@ -550,19 +551,17 @@ def process_single_title(db, title_id, title_name, args):
 
     # Auto-search via Wayback if no URL mapping
     if not url and title_name:
-        # Note: search_toongod_via_wayback also uses Wayback, 
-        # but we do it synchronously per title here.
         url = search_toongod_via_wayback(title_name)
         if url:
-            print(f"   💡 Auto-discovered URL: {url}", flush=True)
+            print(f"   {prefix} 💡 Auto-discovered URL: {url}", flush=True)
 
     if not url:
-        print(f"   ⏭️  No URL mapping found — skipping.", flush=True)
+        print(f"   {prefix} ⏭️  No URL mapping found — skipping.", flush=True)
         return "skipped"
 
     # Check if update needed
     if not needs_update(db, title_id, force=args.force):
-        print(f"   ✓ Already in DB and fresh — skipping (use --force to re-scrape)", flush=True)
+        print(f"   {prefix} ✓ Already fresh — skipping (use --force to re-scrape)", flush=True)
         return "skipped"
 
     # Scrape (Hybrid)
@@ -570,7 +569,7 @@ def process_single_title(db, title_id, title_name, args):
     if data and data.get('title') and sync_to_firestore(db, data, title_id):
         return "success"
     else:
-        print(f"   ⚠️  Could not scrape (no source or empty data).", flush=True)
+        print(f"   {prefix} ⚠️  Could not scrape (no source or empty data).", flush=True)
         return "failed"
 
 
