@@ -2,3 +2,5 @@ cloudscraper
 beautifulsoup4
 firebase-admin
 selenium
+requests
+lxml

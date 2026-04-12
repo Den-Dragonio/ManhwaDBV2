@@ -26,6 +26,12 @@ import time
 import argparse
 from urllib.parse import quote
 
+# Force UTF-8 for stdout/stderr to prevent crashes in minimal CI environments
+if sys.stdout.encoding != 'utf-8':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 SERVICE_ACCOUNT_KEY = 'scripts/serviceAccount.json'
 
@@ -62,13 +68,29 @@ TOONGOD_BASE = "https://www.toongod.org"
 # ── FIREBASE ──────────────────────────────────────────────────────────────────
 def init_firebase():
     if not os.path.exists(SERVICE_ACCOUNT_KEY):
-        print(f"ERROR: {SERVICE_ACCOUNT_KEY} not found.")
-        print("Download it from Firebase Console → Project Settings → Service Accounts")
+        print(f"❌ ERROR: {SERVICE_ACCOUNT_KEY} not found.")
+        print("   TIP: If running in GitHub Actions, ensure 'FIREBASE_SERVICE_ACCOUNT' secret is set.")
         return None
-    cred = credentials.Certificate(SERVICE_ACCOUNT_KEY)
-    if not firebase_admin._apps:
-        firebase_admin.initialize_app(cred)
-    return firestore.client()
+    
+    # Check if file is empty or too small
+    if os.path.getsize(SERVICE_ACCOUNT_KEY) < 10:
+        print(f"❌ ERROR: {SERVICE_ACCOUNT_KEY} is empty or invalid.")
+        print("   TIP: The GitHub secret 'FIREBASE_SERVICE_ACCOUNT' might be empty.")
+        return None
+
+    try:
+        cred = credentials.Certificate(SERVICE_ACCOUNT_KEY)
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app(cred)
+        return firestore.client()
+    except json.JSONDecodeError as e:
+        print(f"❌ ERROR: Failed to parse {SERVICE_ACCOUNT_KEY} as JSON.")
+        print(f"   Details: {e}")
+        print("   TIP: Check if your GitHub secret contains the full JSON content.")
+        return None
+    except Exception as e:
+        print(f"❌ ERROR: Firebase initialization failed: {e}")
+        return None
 
 
 def get_all_titles(db):
@@ -479,4 +501,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"\n💥 CRITICAL CRASH: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
