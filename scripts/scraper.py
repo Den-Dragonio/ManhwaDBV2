@@ -414,8 +414,15 @@ def slugify(title):
 def sync_to_firestore(db, data, title_id):
     if not data:
         return False
-    # Primary doc
+    # Primary doc merge
     db.collection('manga_metadata').document(title_id).set(data, merge=True)
+    
+    # Add ToonGod title to search_names array for better searchability
+    if 'title' in data:
+        db.collection('manga_metadata').document(title_id).update({
+            'search_names': firestore.ArrayUnion([data['title'].lower()])
+        })
+    
     print(f"   📝 Saved as '{title_id}'")
 
     # Slug-based fallback

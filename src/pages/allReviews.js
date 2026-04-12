@@ -119,7 +119,11 @@ export async function renderAllReviews({ userId }) {
     let list = [...reviews];
 
     if (currentSearch) {
-      list = list.filter(r => r.title.toLowerCase().includes(currentSearch));
+      list = list.filter(r => {
+        const matchesTitle = r.title.toLowerCase().includes(currentSearch);
+        const matchesAlias = (r.search_names || []).some(alias => alias.toLowerCase().includes(currentSearch));
+        return matchesTitle || matchesAlias;
+      });
     }
 
     if (activeTags.size > 0) {

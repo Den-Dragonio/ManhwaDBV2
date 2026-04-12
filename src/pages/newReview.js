@@ -24,6 +24,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
   let currentChapters = existing?.chapters || '';
   let currentStatus = existing?.status || 'done';
   let selectedTitleId = existing?.titleId || preSelectedTitleId || null;
+  let selectedSearchNames = existing?.search_names || [];
 
   container.innerHTML = `
     <div class="page-container" style="max-width:720px">
@@ -302,7 +303,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
           const chapters = m.anilist?.chapters || m.toongod?.chapters || m.chapters || 0;
           finalHtmlItems.push(`
             <div class="ac-item db-match" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);background:rgba(var(--accent-rgb), 0.05)" 
-                 data-title="${escapeHtml(title)}" data-cover="${cover}" data-chapters="${chapters}" data-tid="${m.id}">
+                 data-title="${escapeHtml(title)}" data-cover="${cover}" data-chapters="${chapters}" data-tid="${m.id}" data-search-names="${escapeHtml(JSON.stringify(m.search_names || []))}">
               ${cover ? `<img src="${cover}" style="width:32px;height:45px;object-fit:cover;border-radius:4px">` : `<div style="width:32px;height:45px;background:var(--bg-hover);border-radius:4px"></div>`}
               <div style="flex:1">
                 <div style="font-weight:600;font-size:0.9rem">${escapeHtml(title)}</div>
@@ -416,6 +417,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
             }
             titleInput.value = item.dataset.title;
             selectedTitleId = item.dataset.tid;
+            selectedSearchNames = item.dataset.searchNames ? JSON.parse(item.dataset.searchNames) : [];
             document.getElementById('review-chapters').value = item.dataset.chapters;
             if (item.dataset.cover) {
               currentCover = item.dataset.cover;
@@ -468,6 +470,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
             titleInput.value = '';
             titleInput.style.background = '';
             selectedTitleId = null;
+            selectedSearchNames = [];
             changeBtn.remove();
           };
           titleInput.parentNode.appendChild(changeBtn);
@@ -638,7 +641,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
       }
     }
 
-    const data = { title, titleId, coverBase64: currentCover, text, rating, chapters, status, tags, date };
+    const data = { title, titleId, search_names: selectedSearchNames, coverBase64: currentCover, text, rating, chapters, status, tags, date };
 
     try {
       let review;

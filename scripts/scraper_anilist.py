@@ -44,6 +44,7 @@ query ($id: Int) {
       english
       native
     }
+    synonyms
     status
     chapters
     volumes
@@ -216,6 +217,12 @@ def fetch_anilist(anilist_id):
             'is_adult': media.get('isAdult', False),
             'format': media.get('format'),
             'country': media.get('countryOfOrigin'),
+            'search_names': list(set(filter(None, [
+                (title.get('english') or '').lower(),
+                (title.get('romaji') or '').lower(),
+                (title.get('native') or '').lower()] + 
+                [s.lower() for s in (media.get('synonyms') or [])]
+            )))
         }
 
         # Clean None values
