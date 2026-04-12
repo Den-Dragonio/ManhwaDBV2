@@ -38,8 +38,8 @@ jobs:
       - name: Запуск AniList Scraper (Нові тайтли)
         run: python -u scripts/scraper_anilist.py
 
-      - name: Запуск ToonGod Scraper (Нові тайтли)
-        run: python -u scripts/scraper.py
-
       - name: Запуск MangaDex Scraper (Статистика)
         run: python -u scripts/scraper_mangadex.py
+
+      - name: Запуск ToonGod Scraper (Нові тайтли)
+        run: python -u scripts/scraper.py

@@ -185,11 +185,12 @@ def get_wayback_url(original_url, retries=3):
             return None
         except Exception as e:
             if attempt < retries - 1:
-                wait = (attempt + 1) * 5
-                print(f"   ⏳ Retry {attempt+1}/{retries} after {wait}s... ({type(e).__name__})")
+                # Exponential backoff + jitter
+                wait = (attempt + 1) * 7 + (attempt * 5)
+                print(f"   ⏳ Retry {attempt+1}/{retries} after {wait}s... ({type(e).__name__})", flush=True)
                 time.sleep(wait)
             else:
-                print(f"   ❌ Wayback CDX error after {retries} retries: {e}")
+                print(f"   ❌ Wayback CDX error after {retries} retries: {e}", flush=True)
                 return None
     return None
 
@@ -500,6 +501,10 @@ def main():
 
 def process_single_title(db, title_id, title_name, args):
     """Worker function for parallel processing."""
+    # Stagger requests to avoid bursts hitting Archive.org
+    import random
+    time.sleep(random.random() * 2)
+
     print(f"\n── {title_id} ({title_name or '?'}) ──", flush=True)
 
     # Find URL
@@ -538,8 +543,8 @@ def main():
     parser = argparse.ArgumentParser(description='ToonGod metadata scraper (Hybrid + Parallel)')
     parser.add_argument('--force', action='store_true',
                         help='Re-scrape even titles already in the database')
-    parser.add_argument('--workers', type=int, default=3,
-                        help='Number of parallel workers (default: 3)')
+    parser.add_argument('--workers', type=int, default=2,
+                        help='Number of parallel workers (default: 2)')
     args = parser.parse_args()
 
     db = init_firebase()
