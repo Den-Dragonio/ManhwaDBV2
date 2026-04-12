@@ -908,3 +908,23 @@ input[type="range"].star-slider::-webkit-slider-thumb {
   letter-spacing: 0.5px;
   vertical-align: middle;
 }
+
+/* MangaDex Badge */
+.md-badge {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #FF6740, #D24D2F);
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-weight: 900;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  box-shadow: 0 4px 15px rgba(255, 103, 64, 0.3);
+  margin-right: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  vertical-align: middle;
+}

@@ -47,6 +47,7 @@ export async function renderTitle({ id }) {
     // Pre-compute status — prefer AniList (more current) over ToonGod
     let statusHtml = '';
     const alData = metadata?.anilist;
+    const mdData = metadata?.mangadex;
     const alStatus = alData?.status;
     if (alStatus) {
       const alStatusMap = { 'FINISHED': 'Завершено', 'RELEASING': 'Онгоінг', 'NOT_YET_RELEASED': 'Анонс', 'CANCELLED': 'Скасовано', 'HIATUS': 'Пауза' };
@@ -63,8 +64,8 @@ export async function renderTitle({ id }) {
     // Pre-compute author/artist HTML
     let authorArtistHtml = '';
     if (metadata) {
-      const author = metadata.author || alData?.author;
-      const artist = metadata.artist || alData?.artist;
+      const author = metadata.author || alData?.author || mdData?.author;
+      const artist = metadata.artist || alData?.artist || mdData?.artist;
       if (author && artist && author.toLowerCase() === artist.toLowerCase()) {
         authorArtistHtml = `<div><span style="color:var(--accent3)">Автор та художник:</span> ${author}</div>`;
       } else {
@@ -78,6 +79,9 @@ export async function renderTitle({ id }) {
     if (metadata?.genres?.length) allGenres.push(...metadata.genres);
     if (alData?.genres?.length) {
       alData.genres.forEach(g => { if (!allGenres.some(x => x.toLowerCase() === g.toLowerCase())) allGenres.push(g); });
+    }
+    if (mdData?.genres?.length) {
+      mdData.genres.forEach(g => { if (!allGenres.some(x => x.toLowerCase() === g.toLowerCase())) allGenres.push(g); });
     }
     const genresHtml = allGenres.length
       ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">${allGenres.map(g => `<span style="font-size:0.72rem;padding:3px 10px;border-radius:20px;background:var(--surface2);color:var(--text-muted);border:1px solid var(--border)">${g}</span>`).join('')}</div>`
@@ -104,8 +108,28 @@ export async function renderTitle({ id }) {
                 <div class="al-badge" title="Рейтинг AniList">
                   <div style="line-height:1.2">AL ${alData.score}</div>
                 </div>` : ''}
-              <div class="meta-badge" title="Рік випуску">📅 <span>Рік:</span> <strong>${metadata.release_year || alData?.year || 'N/A'}</strong></div>
-              ${alData?.popularity ? `<div class="meta-badge meta-badge-popularity" title="Популярність на AniList">🔥 <span>Популярність:</span> <strong>${alData.popularity.toLocaleString()}</strong></div>` : (metadata.bookmarks ? `<div class="meta-badge meta-badge-popularity" title="Популярність на ToonGod">🔥 <span>Популярність:</span> <strong>${metadata.bookmarks}</strong></div>` : '')}
+              ${mdData?.score ? `
+                <div class="md-badge" title="Рейтинг MangaDex">
+                  <div style="line-height:1.2">MD ${mdData.score}</div>
+                </div>` : ''}
+              <div class="meta-badge" title="Рік випуску">📅 <span>Рік:</span> <strong>${metadata.release_year || alData?.year || mdData?.year || 'N/A'}</strong></div>
+              
+              ${(() => {
+                const alPop = alData?.popularity || 0;
+                const mdPop = mdData?.popularity || 0;
+                const tgPop = Number(metadata.bookmarks) || 0;
+                const maxPop = Math.max(alPop, mdPop, tgPop);
+                
+                if (maxPop === 0) return '';
+                
+                const breakdown = [
+                  alPop ? `AniList: ${alPop.toLocaleString()}` : '',
+                  mdPop ? `MangaDex: ${mdPop.toLocaleString()}` : '',
+                  tgPop ? `ToonGod: ${tgPop.toLocaleString()}` : ''
+                ].filter(Boolean).join(' | ');
+
+                return `<div class="meta-badge meta-badge-popularity" title="Джерела: ${breakdown}">🔥 <span>Популярність:</span> <strong>${maxPop.toLocaleString()}</strong></div>`;
+              })()}
             </div>
             <div style="margin-bottom:12px; font-size:0.85rem; color:var(--text-muted); display:flex; flex-wrap:wrap; gap:16px; align-items:center">
                 ${statusHtml}

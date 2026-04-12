@@ -25,6 +25,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
   let currentStatus = existing?.status || 'done';
   let selectedTitleId = existing?.titleId || preSelectedTitleId || null;
   let selectedSearchNames = existing?.search_names || [];
+  let selectedMdexId = existing?.mangadex_id || null;
 
   container.innerHTML = `
     <div class="page-container" style="max-width:720px">
@@ -237,6 +238,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
 
         // Helper for normalization
         const normalize = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+        const listToLowUnique = (list) => [...new Set(list.filter(Boolean).map(s => s.toLowerCase()))];
 
         // Parallel fetching for speed
         const [firestoreRes, aniRes, hchanRes] = await Promise.all([
@@ -261,7 +263,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              query: `query ($search: String) { Page(page: 1, perPage: 8) { media(search: $search, type: MANGA) { id title { romaji english } coverImage { extraLarge } chapters } } }`,
+              query: `query ($search: String) { Page(page: 1, perPage: 8) { media(search: $search, type: MANGA) { id title { romaji english native } synonyms coverImage { extraLarge } chapters } } }`,
               variables: { search: q }
             })
           }).then(r => r.json()).catch(() => ({ data: { Page: { media: [] } } })),
@@ -322,9 +324,11 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
 
           const cover = m.coverImage?.extraLarge || '';
           const tid = `ani_${m.id}`;
+          const aliases = listToLowUnique([m.title.english, m.title.romaji, m.title.native, ...(m.synonyms || [])]);
+
           finalHtmlItems.push(`
             <div class="ac-item" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);transition:0.1s" 
-                 data-title="${escapeHtml(t)}" data-cover="${cover}" data-chapters="${m.chapters || 0}" data-tid="${tid}">
+                 data-title="${escapeHtml(t)}" data-cover="${cover}" data-chapters="${m.chapters || 0}" data-tid="${tid}" data-search-names="${escapeHtml(JSON.stringify(aliases))}">
               ${cover ? `<img src="${cover}" style="width:32px;height:45px;object-fit:cover;border-radius:4px">` : `<div style="width:32px;height:45px;background:var(--bg-hover);border-radius:4px"></div>`}
               <div style="flex:1">
                 <div style="font-weight:500;font-size:0.9rem">${escapeHtml(t)}</div>
@@ -353,16 +357,22 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
                const coverId = coverRel?.attributes?.fileName;
                const coverUrl = coverId ? `https://uploads.mangadex.org/covers/${m.id}/${coverId}.256.jpg` : '';
                const tid = m.attributes.links?.al ? `ani_${m.attributes.links.al}` : `mdex_${m.id}`;
+               const mdexId = m.id;
                const isAdult = m.attributes.contentRating === 'pornographic' || m.attributes.contentRating === 'erotica';
                const chapters = m.attributes.lastChapter || 0;
                
+               const aliases = listToLowUnique([
+                 ...Object.values(m.attributes.title || {}),
+                 ...(m.attributes.altTitles || []).flatMap(obj => Object.values(obj))
+               ]);
+
                finalHtmlItems.push(`
                  <div class="ac-item" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);transition:0.1s" 
-                      data-title="${escapeHtml(t)}" data-cover="${coverUrl}" data-chapters="${chapters}" data-tid="${tid}">
+                      data-title="${escapeHtml(t)}" data-cover="${coverUrl}" data-chapters="${chapters}" data-tid="${tid}" data-mdex-id="${mdexId}" data-search-names="${escapeHtml(JSON.stringify(aliases))}">
                    ${coverUrl ? `<img src="${coverUrl}" style="width:32px;height:45px;object-fit:cover;border-radius:4px">` : `<div style="width:32px;height:45px;background:var(--bg-hover);border-radius:4px"></div>`}
                    <div style="flex:1">
                      <div style="font-weight:500;font-size:0.9rem">${escapeHtml(t)} ${isAdult ? '🔞' : ''}</div>
-                     <div style="font-size:0.7rem;color:var(--accent3)">MangaDex ${isAdult ? '(18+)' : ''} ${chapters ? `• ${chapters} глав` : ''}</div>
+                     <div style="font-size:0.7rem;color:var(--accent3)">MangaDex ${isAdult ? '(18+) ' : ''} ${chapters ? `• ${chapters} глав` : ''}</div>
                    </div>
                  </div>`);
              });
@@ -417,6 +427,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
             }
             titleInput.value = item.dataset.title;
             selectedTitleId = item.dataset.tid;
+            selectedMdexId = item.dataset.mdexId || null;
             selectedSearchNames = item.dataset.searchNames ? JSON.parse(item.dataset.searchNames) : [];
             document.getElementById('review-chapters').value = item.dataset.chapters;
             if (item.dataset.cover) {
@@ -470,6 +481,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
             titleInput.value = '';
             titleInput.style.background = '';
             selectedTitleId = null;
+            selectedMdexId = null;
             selectedSearchNames = [];
             changeBtn.remove();
           };
@@ -641,7 +653,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
       }
     }
 
-    const data = { title, titleId, search_names: selectedSearchNames, coverBase64: currentCover, text, rating, chapters, status, tags, date };
+    const data = { title, titleId, mangadex_id: selectedMdexId, search_names: selectedSearchNames, coverBase64: currentCover, text, rating, chapters, status, tags, date };
 
     try {
       let review;

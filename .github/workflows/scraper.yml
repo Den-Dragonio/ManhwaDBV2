@@ -40,3 +40,6 @@ jobs:
 
       - name: Запуск ToonGod Scraper (Нові тайтли)
         run: python -u scripts/scraper.py
+
+      - name: Запуск MangaDex Scraper (Статистика)
+        run: python -u scripts/scraper_mangadex.py

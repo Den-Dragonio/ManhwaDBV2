@@ -25,12 +25,24 @@ import re
 import time
 import argparse
 from urllib.parse import quote
+import concurrent.futures
+from datetime import datetime, timedelta
+import cloudscraper
 
 # Force UTF-8 for stdout/stderr to prevent crashes in minimal CI environments
 if sys.stdout.encoding != 'utf-8':
     import io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
+# Initialize cloudscraper once
+C_SCRAPER = cloudscraper.create_scraper(
+    browser={
+        'browser': 'chrome',
+        'platform': 'windows',
+        'desktop': True
+    }
+)
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 SERVICE_ACCOUNT_KEY = 'scripts/serviceAccount.json'
@@ -119,6 +131,23 @@ def needs_update(db, title_id, force=False):
     if not snap.exists:
         return True
     data = snap.to_dict()
+    
+    # Check if updated recently (within 24 hours)
+    last_updated = data.get('last_updated')
+    if last_updated:
+        # last_updated is a Firestore Timestamp
+        if isinstance(last_updated, datetime):
+            lu_dt = last_updated
+        else:
+            # Handle if it's already a datetime or other format
+            try: lu_dt = last_updated.replace(tzinfo=None)
+            except: lu_dt = datetime.min
+            
+        if datetime.now() - lu_dt < timedelta(hours=24):
+            # Only skip if essential data is already present
+            if data.get('official_rating') and data.get('status'):
+                return False
+
     # Re-scrape if key fields are missing
     return not data.get('official_rating') or not data.get('status')
 
@@ -257,23 +286,42 @@ def parse_count(text):
 
 
 def scrape_toongod(url):
-    """Scrape a ToonGod page via its Wayback Machine snapshot."""
-    print(f"   🌐 Fetching Wayback snapshot for: {url}")
+    """Scrape a ToonGod page — Hybrid: Direct Fetch -> Wayback Fallback."""
+    print(f"   🌐 Attempting fetch for: {url}", flush=True)
 
-    wb_url = get_wayback_url(url)
-    if not wb_url:
-        print(f"   ⚠️  No Wayback snapshot found")
-        return None
+    html_content = None
+    source_type = "Archive.org"
 
-    print(f"   📦 Using: {wb_url}")
-
+    # Step A: Try Direct Fetch with cloudscraper
     try:
-        resp = requests.get(wb_url, timeout=30)
-        if resp.status_code != 200:
-            print(f"   ⚠️  HTTP {resp.status_code}")
+        resp = C_SCRAPER.get(url, timeout=20)
+        if resp.status_code == 200 and 'post-title' in resp.text:
+            print(f"   🚀 Direct fetch success!", flush=True)
+            html_content = resp.text
+            source_type = "Direct"
+    except Exception as e:
+        pass # Fallback to wayback
+
+    # Step B: Fallback to Wayback
+    if not html_content:
+        wb_url = get_wayback_url(url)
+        if not wb_url:
+            print(f"   ⚠️  No Wayback snapshot found and direct fetch failed", flush=True)
+            return None
+        print(f"   📦 Using Wayback: {wb_url}", flush=True)
+        try:
+            resp = requests.get(wb_url, timeout=30)
+            if resp.status_code == 200:
+                html_content = resp.text
+        except Exception as e:
+            print(f"   ⚠️  Wayback HTTP Error: {e}", flush=True)
             return None
 
-        soup = BeautifulSoup(resp.text, 'html.parser')
+    if not html_content:
+        return None
+
+    try:
+        soup = BeautifulSoup(html_content, 'html.parser')
         data = {}
 
         # Title
@@ -392,6 +440,7 @@ def scrape_toongod(url):
                 data['thumbnail_url'] = thumb_url
 
         data['url'] = url
+        data['source'] = source_type
         data['last_updated'] = firestore.SERVER_TIMESTAMP
 
         votes_str = data.get('vote_count', 'N/A')
@@ -449,6 +498,58 @@ def main():
     print("ToonGod Scraper (Wayback) — Syncing ALL titles to Firestore", flush=True)
     print("=" * 65, flush=True)
 
+def process_single_title(db, title_id, title_name, args):
+    """Worker function for parallel processing."""
+    print(f"\n── {title_id} ({title_name or '?'}) ──", flush=True)
+
+    # Find URL
+    url = TITLE_ID_TO_URL.get(title_id)
+    if not url and title_name:
+        url = TITLE_NAME_TO_URL.get(title_name.lower().strip())
+
+    # Auto-search via Wayback if no URL mapping
+    if not url and title_name:
+        # Note: search_toongod_via_wayback also uses Wayback, 
+        # but we do it synchronously per title here.
+        url = search_toongod_via_wayback(title_name)
+        if url:
+            print(f"   💡 Auto-discovered URL: {url}", flush=True)
+
+    if not url:
+        print(f"   ⏭️  No URL mapping found — skipping.", flush=True)
+        return "skipped"
+
+    # Check if update needed
+    if not needs_update(db, title_id, force=args.force):
+        print(f"   ✓ Already in DB and fresh — skipping (use --force to re-scrape)", flush=True)
+        return "skipped"
+
+    # Scrape (Hybrid)
+    data = scrape_toongod(url)
+    if data and data.get('title') and sync_to_firestore(db, data, title_id):
+        return "success"
+    else:
+        print(f"   ⚠️  Could not scrape (no source or empty data).", flush=True)
+        return "failed"
+
+
+# ── MAIN ──────────────────────────────────────────────────────────────────────
+def main():
+    parser = argparse.ArgumentParser(description='ToonGod metadata scraper (Hybrid + Parallel)')
+    parser.add_argument('--force', action='store_true',
+                        help='Re-scrape even titles already in the database')
+    parser.add_argument('--workers', type=int, default=3,
+                        help='Number of parallel workers (default: 3)')
+    args = parser.parse_args()
+
+    db = init_firebase()
+    if not db:
+        sys.exit(1)
+
+    print("=" * 65, flush=True)
+    print(f"ToonGod Scraper (Hybrid) — {args.workers} Workers — {datetime.now().strftime('%Y-%m-%d %H:%M')}", flush=True)
+    print("=" * 65, flush=True)
+
     # Step 1: Collect all unique titles from reviews
     all_titles = get_all_titles(db)
 
@@ -461,57 +562,34 @@ def main():
     skipped = 0
     failed = 0
 
-    for title_id, title_name in all_titles.items():
-        print(f"\n── {title_id} ({title_name or '?'}) ──")
-
-        # Find URL
-        url = TITLE_ID_TO_URL.get(title_id)
-        if not url and title_name:
-            url = TITLE_NAME_TO_URL.get(title_name.lower().strip())
-
-        # Auto-search via Wayback if no URL mapping
-        if not url and title_name:
-            url = search_toongod_via_wayback(title_name)
-            if url:
-                print(f"   💡 Auto-discovered URL: {url}")
-
-        if not url:
-            print(f"   ⏭️  No URL mapping found — skipping.")
-            print(f"   💡 Add to TITLE_ID_TO_URL in scraper.py to enable scraping.")
-            skipped += 1
-            continue
-
-        # Check if update needed
-        if not needs_update(db, title_id, force=args.force):
-            print(f"   ✓ Already in DB and complete — skipping (use --force to re-scrape)")
-            skipped += 1
-            continue
-
-        # Scrape via Wayback
-        data = scrape_toongod(url)
-        if data and data.get('title') and sync_to_firestore(db, data, title_id):
-            success += 1
-        else:
-            failed += 1
-            print(f"   ⚠️  Could not scrape (no Wayback snapshot or empty data).")
-
-        time.sleep(DELAY_BETWEEN_REQUESTS)
+    # Step 3: Process in parallel
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as executor:
+        # Create a list of futures
+        future_to_title = {
+            executor.submit(process_single_title, db, tid, tname, args): tid 
+            for tid, tname in all_titles.items()
+        }
+        
+        for future in concurrent.futures.as_completed(future_to_title):
+            res = future.result()
+            if res == "success": success += 1
+            elif res == "skipped": skipped += 1
+            else: failed += 1
 
     print()
-    print("=" * 65)
-    print(f"Done! ✅ {success} synced  ⏭️  {skipped} skipped  ❌ {failed} failed")
-    print("=" * 65)
+    print("=" * 65, flush=True)
+    print(f"Done! ✅ {success} synced  ⏭️  {skipped} skipped  ❌ {failed} failed", flush=True)
+    print("=" * 65, flush=True)
 
     if skipped > 0:
         print("\n💡 Tip: For titles without a URL mapping, add an entry to")
-        print("   TITLE_ID_TO_URL in scripts/scraper.py and re-run.")
-
+        print("   TITLE_ID_TO_URL in scripts/scraper.py and re-run.", flush=True)
 
 if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        print(f"\n💥 CRITICAL CRASH: {e}")
+        print(f"\n💥 CRITICAL CRASH: {e}", flush=True)
         import traceback
         traceback.print_exc()
         sys.exit(1)
