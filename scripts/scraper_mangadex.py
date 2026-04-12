@@ -7,6 +7,7 @@ import time
 import argparse
 import concurrent.futures
 from datetime import datetime
+from urllib.parse import quote
 
 # Force UTF-8 for stdout/stderr to prevent crashes in minimal CI environments
 if sys.stdout.encoding != 'utf-8':
@@ -39,8 +40,15 @@ def get_all_titles_to_process(db):
     meta_ref = db.collection('manga_metadata').stream()
     for doc in meta_ref:
         data = doc.to_dict()
+        # Safely extract title from metadata
+        al_data = data.get('anilist')
+        al_title = None
+        if isinstance(al_data, dict):
+            title_node = al_data.get('title', {})
+            al_title = title_node.get('english') or title_node.get('romaji')
+            
         titles[doc.id] = {
-            "name": data.get('title') or data.get('anilist', {}).get('title', {}).get('english'),
+            "name": data.get('title') or al_title,
             "md_id": data.get('mangadex_id')
         }
 
