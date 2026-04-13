@@ -186,6 +186,29 @@ export async function renderAllReviews({ userId }) {
 
   // Initial load sort
   applySortAndFilter();
+
+  // Scroll to Top logic
+  const topBtn = document.createElement('div');
+  topBtn.className = 'back-to-top';
+  topBtn.innerHTML = '↑';
+  container.appendChild(topBtn);
+
+  const handleScroll = () => {
+    if (!topBtn.isConnected) {
+      window.removeEventListener('scroll', handleScroll);
+      return;
+    }
+    if (window.scrollY > 400) {
+      topBtn.classList.add('visible');
+    } else {
+      topBtn.classList.remove('visible');
+    }
+  };
+
+  window.addEventListener('scroll', handleScroll);
+  topBtn.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
 }
 
 function renderGrid(reviews) {
