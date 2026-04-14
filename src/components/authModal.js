@@ -97,7 +97,7 @@ function renderTab(backdrop, tab) {
     content.innerHTML = `
       <div class="form-group" style="margin-bottom:14px">
         <label class="form-label">Логін <span style="color:var(--accent)">*</span></label>
-        <input class="input" type="text" id="auth-username" placeholder="Лише літери, цифри, _ (мін. 3)" autocomplete="username">
+        <input class="input" type="text" id="auth-username" placeholder="Англ. літери, цифри, - та _ (макс. 14)" autocomplete="username">
       </div>
       <div class="form-group" style="margin-bottom:14px">
         <label class="form-label">Email (необов'язково)</label>

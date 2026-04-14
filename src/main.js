@@ -116,18 +116,20 @@ async function checkCommentNotifications(userId) {
   try {
     const q = query(
       collection(db, 'news'),
-      where('type', '==', 'new_comment'),
+      where('type', 'in', ['new_comment', 'comment_reply']),
       where('targetId', '==', userId),
       where('read', '==', false)
     );
     const snap = await getDocs(q);
     snap.docs.forEach(d => {
       const data = d.data();
-      showToast(
-        `💬 ${data.commenterName || 'Хтось'} прокоментував вашу рецензію "${data.reviewTitle || '...'}"`,
-        'info',
-        { persistent: true }
-      );
+      let msg = '';
+      if (data.type === 'new_comment') {
+        msg = `💬 ${data.commenterName || 'Хтось'} прокоментував вашу рецензію "${data.reviewTitle || '...'}"`;
+      } else if (data.type === 'comment_reply') {
+        msg = `↪️ ${data.replierName || 'Хтось'} відповів на ваш коментар до "${data.reviewTitle || '...'}"`;
+      }
+      if (msg) showToast(msg, 'info', { persistent: true });
       // Mark as read
       updateDoc(doc(db, 'news', d.id), { read: true }).catch(console.error);
     });

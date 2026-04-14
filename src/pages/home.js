@@ -172,6 +172,14 @@ function renderNewsItem(item) {
   if (item.type === 'joined') { icon = '🎉'; text = `${username} приєднався до ManhwaDB`; }
   else if (item.type === 'review') { icon = '📝'; text = `${username} залишив рецензію на <strong>${escapeHtml(item.extra || 'манхву')}</strong>`; }
   else if (item.type === 'friend') { icon = '🤝'; text = `${username} та <strong>${escapeHtml(item.friendName || 'Хтось')}</strong> тепер друзі!`; }
+  else if (item.type === 'new_comment') { 
+    icon = '💬'; 
+    text = `<strong>${escapeHtml(item.commenterName || 'Хтось')}</strong> прокоментував рецензію на <strong>${escapeHtml(item.reviewTitle || 'манхву')}</strong>`; 
+  }
+  else if (item.type === 'comment_reply') { 
+    icon = '↪️'; 
+    text = `<strong>${escapeHtml(item.replierName || 'Хтось')}</strong> відповів на ваш коментар до <strong>${escapeHtml(item.reviewTitle || 'манхви')}</strong>`; 
+  }
   else { icon = '📢'; text = `${username} щось зробив`; }
   return `<div class="news-item"><span class="news-icon">${icon}</span><div><div class="news-text">${text}</div><div class="news-ts">${timeAgo(item.createdAt)}</div></div></div>`;
 }

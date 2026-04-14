@@ -64,7 +64,11 @@ export async function renderAccountPage(userId, isOwn = false) {
           ${top4Reviews.map((r, i) => `
             <div class="top4-slot-wrap">
               <div class="top4-slot${isOwn ? '' : ' no-hover'}" data-slot="${i}">
-                ${r?.coverBase64 ? `<img src="${r.coverBase64}" alt="${escapeHtml(r?.title || '')}">` : (isOwn ? '+' : '?')}
+                ${r?.coverBase64 
+                  ? `<a href="#review/${r.id}" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;text-decoration:none;color:inherit">
+                       <img src="${r.coverBase64}" alt="${escapeHtml(r?.title || '')}">
+                     </a>` 
+                  : (isOwn ? '+' : '?')}
                 ${r && isOwn ? `<button class="top4-slot-remove" data-remove-slot="${i}">✕</button>` : ''}
               </div>
               ${r ? `<a href="#review/${r.id}" class="top4-slot-title">${escapeHtml(r.title)}</a>` : ''}
@@ -330,6 +334,7 @@ function showEditModal(user) {
           <div class="form-group" style="margin-bottom:14px">
             <label class="form-label">Email</label>
             <input class="input" type="email" id="edit-email" value="${escapeHtml(user.email || '')}">
+            <p style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;line-height:1.4">Цей Email використовується для надсилання сповіщень, якщо під вашу рецензію будуть залишені коментарі.</p>
           </div>
           <div class="divider"></div>
           <div class="section-title" style="font-size:0.95rem;margin-bottom:12px">🔑 Змінити пароль</div>

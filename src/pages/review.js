@@ -5,6 +5,7 @@
 import { Reviews, Users, Comments, Session, News } from '../store.js';
 import { starsHtml, avatarHtml, timeAgo, formatDate, escapeHtml, showToast, showLoader, fetchX9QualityByTitle, formatTag } from '../utils.js';
 import { navigate } from '../router.js';
+import { EmailService } from '../services/email.js';
 
 export async function renderReview({ id }) {
   const container = document.getElementById('page-root');
@@ -231,6 +232,19 @@ export async function renderReview({ id }) {
           commenterName: currentUser.username,
           read: false,
         }).catch(console.error);
+
+        // REAL EMAIL LOGIC
+        if (author?.email) {
+          EmailService.notifyNewInteraction({
+            toEmail: author.email,
+            toName: author.username,
+            commenterName: currentUser.username,
+            reviewTitle: review.title,
+            reviewId: id,
+            message: text,
+            type: 'comment'
+          }).catch(console.error);
+        }
       }
       document.getElementById('new-comment-text').value = '';
       btn.disabled = false; btn.textContent = 'Надіслати';
@@ -355,6 +369,30 @@ async function loadComments(reviewId, currentUser) {
         if (!text || !currentUser) return;
         form.querySelector('.reply-submit-btn').disabled = true;
         await Comments.create(reviewId, currentUser.id, text, parentId);
+        // Notify original commenter about the reply
+        const parentComment = allComments.find(c => c.id === parentId);
+        if (parentComment && parentComment.userId !== currentUser.id) {
+          await News.add('comment_reply', currentUser.id, parentComment.userId, {
+            reviewId,
+            reviewTitle: review.title,
+            replierName: currentUser.username,
+            read: false,
+          }).catch(console.error);
+
+          // REAL EMAIL LOGIC
+          const parentAuthor = await Users.byId(parentComment.userId);
+          if (parentAuthor?.email) {
+            EmailService.notifyNewInteraction({
+              toEmail: parentAuthor.email,
+              toName: parentAuthor.username,
+              commenterName: currentUser.username,
+              reviewTitle: review.title,
+              reviewId,
+              message: text,
+              type: 'reply'
+            }).catch(console.error);
+          }
+        }
         await loadComments(reviewId, currentUser);
       });
     });

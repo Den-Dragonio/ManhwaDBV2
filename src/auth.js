@@ -23,10 +23,14 @@ function usernameToEmail(username) {
 }
 
 export async function register(username, password, email = '') {
-  if (!username || username.trim().length < 3)
-    return { error: "Ім'я користувача має бути мінімум 3 символи" };
-  if (!/^[a-zA-Z0-9_а-яА-ЯіІїЇєЄ]+$/.test(username))
-    return { error: "Логін може містити лише літери, цифри та _" };
+  if (!username || username.length < 3)
+    return { error: "Логін має бути мінімум 3 символи" };
+  if (username.length > 14)
+    return { error: "Логін не може бути довшим за 14 символів" };
+  if (/\s/.test(username))
+    return { error: "Логін не може містити пробіли" };
+  if (!/^[a-zA-Z0-9_-]+$/.test(username))
+    return { error: "Логін може містити лише англ. літери, цифри, - та _" };
   if (!password || password.length < 6)
     return { error: 'Пароль має бути мінімум 6 символів' };
 
