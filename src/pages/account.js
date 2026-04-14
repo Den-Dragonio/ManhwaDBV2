@@ -70,7 +70,6 @@ export async function renderAccountPage(userId, isOwn = false) {
               ${r ? `<a href="#review/${r.id}" class="top4-slot-title">${escapeHtml(r.title)}</a>` : ''}
             </div>`).join('')}
         </div>
-        ${isOwn ? `<p style="color:var(--text-muted);font-size:0.78rem;margin-top:8px">Натисніть на слот, щоб обрати манхву</p>` : ''}
       </div>
 
       <!-- Recent Reviews -->
@@ -149,7 +148,9 @@ export async function renderAccountPage(userId, isOwn = false) {
     container.querySelectorAll('[data-slot]').forEach(slot => {
       slot.addEventListener('click', e => {
         if (e.target.dataset.removeSlot !== undefined) return;
-        showTop4Picker(userId, parseInt(slot.dataset.slot), reviews);
+        const slotIdx = parseInt(slot.dataset.slot);
+        if (top4[slotIdx]) return; // Disable click for replacement - must remove first
+        showTop4Picker(userId, slotIdx, reviews, top4);
       });
     });
     container.querySelectorAll('[data-remove-slot]').forEach(btn => {
@@ -459,8 +460,12 @@ function showDeleteConfirmModal(user) {
   });
 }
 
-function showTop4Picker(userId, slotIdx, reviews) {
+function showTop4Picker(userId, slotIdx, reviews, currentTop4Ids = []) {
   const holder = document.getElementById('top4-modal-placeholder');
+  
+  // Filter out reviews already in Top 4 to prevent duplicates
+  const filteredReviews = reviews.filter(r => !currentTop4Ids.includes(r.id));
+
   holder.innerHTML = `
     <div class="modal-backdrop" id="top4-modal">
       <div class="modal-box modal-box-lg">
@@ -471,8 +476,8 @@ function showTop4Picker(userId, slotIdx, reviews) {
         <div class="modal-body">
           <input class="input" id="top4-search" placeholder="🔍  Пошук..." style="margin-bottom:16px">
           <div class="manhwa-grid">
-            ${reviews.length === 0 ? `<div class='empty-state'><h3>Немає рецензій</h3></div>` :
-      reviews.map(r => `
+            ${filteredReviews.length === 0 ? `<div class='empty-state'><h3>Немає доступних рецензій</h3></div>` :
+      filteredReviews.map(r => `
                 <div class="manhwa-thumb-wrap" data-pick-review="${r.id}" title="${escapeHtml(r.title)}" style="cursor:pointer">
                   <div class="manhwa-thumb">
                     ${r.coverBase64 ? `<img src="${r.coverBase64}" alt="">` : `<div class="manhwa-thumb-placeholder" style="font-size:11px;padding:4px;text-align:center;word-break:break-word">${escapeHtml(r.title)}</div>`}
