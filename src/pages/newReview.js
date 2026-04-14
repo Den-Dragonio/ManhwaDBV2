@@ -141,7 +141,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
         <!-- Text -->
         <div class="form-group" style="margin-bottom:24px">
           <label class="form-label">Текст рецензії (необов'язково)</label>
-          <textarea class="textarea" id="review-text" placeholder="Ваші враження про манхву..." style="min-height:160px">${escapeHtml(existing?.text || '')}</textarea>
+          <textarea class="textarea" id="review-text" placeholder="Ваші враження про манхву..." style="min-height:280px">${escapeHtml(existing?.text || '')}</textarea>
         </div>
 
         <div id="review-form-error" class="form-error" style="display:none;margin-bottom:12px"></div>

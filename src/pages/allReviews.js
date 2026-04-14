@@ -41,6 +41,16 @@ export async function renderAllReviews({ userId }) {
           <button class="btn btn-secondary btn-sm sort-btn" data-sort="chapters" data-dir="desc">📚 Глави ⬇️</button>
         </div>
         <input class="input" id="all-reviews-search" placeholder="🔍 Пошук..." style="width:100%; margin-bottom: 8px;">
+        
+        <div style="font-size:0.85rem;color:var(--text-muted);width:100%;margin-top:4px">Фільтр статусів:</div>
+        <div id="status-filter-wrap" style="display:flex;flex-wrap:wrap;gap:6px;width:100%;margin-bottom:8px">
+          <button class="status-badge status-done filter-status-btn" data-status="done" style="cursor:pointer;border:1px solid transparent;opacity:0.6;transition:0.2s">Прочитано</button>
+          <button class="status-badge status-reading filter-status-btn" data-status="reading" style="cursor:pointer;border:1px solid transparent;opacity:0.6;transition:0.2s">Читаю</button>
+          <button class="status-badge status-planned filter-status-btn" data-status="planned" style="cursor:pointer;border:1px solid transparent;opacity:0.6;transition:0.2s">В планах</button>
+          <button class="status-badge status-dropped filter-status-btn" data-status="dropped" style="cursor:pointer;border:1px solid transparent;opacity:0.6;transition:0.2s">Кинув</button>
+        </div>
+
+        <div style="font-size:0.85rem;color:var(--text-muted);width:100%;margin-top:4px">Фільтр тегів:</div>
         <div id="tag-filter-wrap" style="display:flex;flex-wrap:wrap;gap:6px;width:100%">
           <!-- Tag buttons injected dynamically -->
         </div>
@@ -63,8 +73,10 @@ export async function renderAllReviews({ userId }) {
   let currentDir = 'desc';
   let currentSearch = '';
   let activeTags = new Set();
+  let activeStatuses = new Set();
   const grid = document.getElementById('all-reviews-grid');
   const tagWrap = document.getElementById('tag-filter-wrap');
+  const statusWrap = document.getElementById('status-filter-wrap');
 
   // Populate dynamic tags
   const tagCounts = {};
@@ -104,6 +116,23 @@ export async function renderAllReviews({ userId }) {
     });
   });
 
+  // Status toggle logic
+  statusWrap.querySelectorAll('.filter-status-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const status = btn.dataset.status;
+      if (activeStatuses.has(status)) {
+        activeStatuses.delete(status);
+        btn.style.opacity = '0.6';
+        btn.style.borderColor = 'transparent';
+      } else {
+        activeStatuses.add(status);
+        btn.style.opacity = '1';
+        btn.style.borderColor = 'var(--text-primary)';
+      }
+      applySortAndFilter();
+    });
+  });
+
   const getSortVal = (r, by) => {
     if (by === 'rating') return Number(r.rating) || 0;
     if (by === 'chapters') return Number(r.chapters) || 0;
@@ -132,6 +161,10 @@ export async function renderAllReviews({ userId }) {
          // AND logic: Review must have ALL selected tags
          return Array.from(activeTags).every(activeTag => itemTags.includes(activeTag));
       });
+    }
+
+    if (activeStatuses.size > 0) {
+      list = list.filter(r => activeStatuses.has(r.status));
     }
 
     list.sort((a, b) => {

@@ -325,7 +325,7 @@ function showEditModal(user) {
           </div>
           <div class="form-group" style="margin-bottom:14px">
             <label class="form-label">Опис</label>
-            <textarea class="textarea" id="edit-bio" style="min-height:80px">${escapeHtml(user.bio || '')}</textarea>
+            <textarea class="textarea" id="edit-bio" style="min-height:160px">${escapeHtml(user.bio || '')}</textarea>
           </div>
           <div class="form-group" style="margin-bottom:14px">
             <label class="form-label">Email</label>
