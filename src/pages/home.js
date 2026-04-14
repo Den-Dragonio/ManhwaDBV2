@@ -2,7 +2,7 @@
 // pages/home.js — Home page (async Firestore)
 // ============================================================
 
-import { Reviews, Users, News, TopSites, Session } from '../store.js';
+import { Reviews, Users, News, TopSites, TopVideoSites, Session } from '../store.js';
 import { starsHtml, timeAgo, escapeHtml, showLoader, formatTag } from '../utils.js';
 import { navigate } from '../router.js';
 
@@ -11,6 +11,7 @@ export async function renderHome() {
   showLoader(container);
 
   const topSites = TopSites.all();
+  const topVideoSites = TopVideoSites.all();
   const [allReviews, topReviews, newsItems] = await Promise.all([
     Reviews.all(),
     Reviews.topRated(10),
@@ -35,10 +36,23 @@ export async function renderHome() {
         <div class="home-left">
           <div class="two-col">
             <!-- Top Sites -->
-            <div>
+             <div>
               <div class="section-title">🌐 Топ сайтів для читання</div>
-              <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px">
                 ${topSites.map((site, i) => `
+                  <a class="top-site-item" href="${escapeHtml(site.url)}" target="_blank" rel="noopener">
+                    <span class="top-site-rank">${i + 1}</span>
+                    <div>
+                      <div style="font-weight:600">${escapeHtml(site.name)}</div>
+                      <div style="font-size:0.75rem;color:var(--text-muted)">${escapeHtml(site.desc)}</div>
+                    </div>
+                    <span style="margin-left:auto;color:var(--text-muted);font-size:12px">↗</span>
+                  </a>`).join('')}
+              </div>
+
+              <div class="section-title">🎬 Топ сайтів для перегляду</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                ${topVideoSites.map((site, i) => `
                   <a class="top-site-item" href="${escapeHtml(site.url)}" target="_blank" rel="noopener">
                     <span class="top-site-rank">${i + 1}</span>
                     <div>

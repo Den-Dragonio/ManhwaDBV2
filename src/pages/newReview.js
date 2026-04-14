@@ -34,68 +34,82 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
         <h1 class="section-title" style="margin:0">${existing ? '✏️ Редагувати рецензію' : '✍️ Нова рецензія'}</h1>
       </div>
       <div class="card card-padding">
-        <!-- Cover -->
-        <div class="form-group" style="margin-bottom:20px">
-          <label class="form-label">Обкладинка манхви (необов'язково)</label>
-          <div class="cover-upload-area" id="cover-upload-area">
-            ${currentCover ? `<img src="${currentCover}" id="cover-preview-img">` : ''}
-            <div class="upload-overlay">
-              <span style="font-size:28px">🖼️</span>
-              <span>${currentCover ? 'Змінити обкладинку' : 'Натисніть або перетягніть'}</span>
-            </div>
-            ${!currentCover ? `<span style="font-size:32px">🖼️</span><span>Натисніть або перетягніть файл</span>` : ''}
-          </div>
-          <input type="file" id="cover-file" accept="image/*" style="display:none">
-          <div id="cover-actions" style="margin-top:8px;display:${currentCover ? 'flex' : 'none'};gap:8px">
-            <button class="btn btn-danger btn-sm" id="remove-cover-btn">🗑 Видалити обкладинку</button>
-          </div>
-        </div>
-
-        <!-- Title -->
-        <div class="form-group" style="margin-bottom:16px">
-          <label class="form-label">Назва манхви <span style="color:var(--accent)">*</span></label>
-          <div style="position:relative">
-            <input class="input" type="text" id="review-title" placeholder="Введіть назву (пошук в базі)..." value="${escapeHtml(existing?.title || '')}" autocomplete="off">
-            <div id="autocomplete-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-float);z-index:100;max-height:300px;overflow-y:auto;margin-top:4px">
+        <div class="review-editor-top-row">
+          <!-- Left: Cover -->
+          <div class="review-editor-left">
+            <div class="form-group">
+              <label class="form-label">Обкладинка манхви</label>
+              <div class="cover-upload-area" id="cover-upload-area">
+                ${currentCover ? `<img src="${currentCover}" id="cover-preview-img">` : ''}
+                <div class="upload-overlay">
+                  <span style="font-size:28px">🖼️</span>
+                  <span>Змінити</span>
+                </div>
+                ${!currentCover ? `<span style="font-size:32px">🖼️</span><span style="font-size:0.75rem">Вибрати файл</span>` : ''}
+              </div>
+              <input type="file" id="cover-file" accept="image/*" style="display:none">
+              <div id="cover-actions" style="margin-top:8px;display:${currentCover ? 'flex' : 'none'};gap:8px">
+                <button class="btn btn-danger btn-xs" id="remove-cover-btn" style="width:100%">🗑 Видалити</button>
+              </div>
             </div>
           </div>
+
+          <!-- Right: Basic Info -->
+          <div class="review-editor-right">
+            <!-- Title -->
+            <div class="form-group">
+              <label class="form-label">Назва манхви <span style="color:var(--accent)">*</span></label>
+              <div style="position:relative">
+                <input class="input" type="text" id="review-title" placeholder="Введіть назву..." value="${escapeHtml(existing?.title || '')}" autocomplete="off">
+                <div id="autocomplete-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-float);z-index:100;max-height:300px;overflow-y:auto;margin-top:4px"></div>
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <!-- Chapters -->
+              <div class="form-group">
+                <label class="form-label">Кількість глав <span style="color:var(--accent)">*</span></label>
+                <input class="input" type="number" id="review-chapters" placeholder="0" min="0" value="${currentChapters}">
+              </div>
+              <!-- Date -->
+              <div class="form-group">
+                <label class="form-label">Дата прочитання</label>
+                <input class="input" type="date" id="review-date" min="2000-01-01" max="${today}" value="${existing?.date || ''}">
+              </div>
+            </div>
+
+            <!-- Status -->
+            <div class="form-group">
+              <label class="form-label">Статус <span style="color:var(--accent)">*</span></label>
+              <select class="select" id="review-status">
+                <option value="done" ${currentStatus === 'done' ? 'selected' : ''}>✅ Прочитано</option>
+                <option value="reading" ${currentStatus === 'reading' ? 'selected' : ''}>📖 Читаю</option>
+                <option value="planned" ${currentStatus === 'planned' ? 'selected' : ''}>⏳ В планах</option>
+                <option value="dropped" ${currentStatus === 'dropped' ? 'selected' : ''}>❌ Кинув</option>
+              </select>
+            </div>
+          </div>
         </div>
 
-        <!-- Chapters -->
-        <div class="form-group" style="margin-bottom:16px">
-          <label class="form-label">Кількість глав <span style="color:var(--accent)">*</span></label>
-          <input class="input" type="number" id="review-chapters" placeholder="0" min="0" value="${currentChapters}">
-        </div>
-
-        <!-- Date -->
-        <div class="form-group" style="margin-bottom:16px">
-          <label class="form-label">Дата прочитання (необов'язково)</label>
-          <input class="input" type="date" id="review-date" min="2000-01-01" max="${today}" value="${existing?.date || ''}">
-        </div>
+        <div class="divider" style="margin:24px 0"></div>
 
         <!-- Tags -->
-        <div class="form-group" style="margin-bottom:16px">
+        <div class="form-group" style="margin-bottom:20px">
           <label class="form-label">Теги (через кому)</label>
           <input class="input" type="text" id="review-tags" placeholder="екшн, романтика, фентезі..." value="${existing?.tags?.join(', ') || ''}">
           <div class="preset-tags-wrap" id="preset-tags-wrap" style="margin-top:10px">
-            <!-- 1. Special -->
+            <!-- Preset tags... -->
             <button type="button" class="preset-tag preset-tag-fapped" data-tag="fapped">fapped 🍆💦</button>
-
-            <!-- 2. Types -->
-            <button type="button" class="preset-tag" data-tag="Манхва">Манхва</button>
+            <button type="button" class="preset-tag" data-tag="Манhwa">Манхва</button>
             <button type="button" class="preset-tag" data-tag="Манга">Манга</button>
-
-            <!-- 3. Genres -->
             <button type="button" class="preset-tag preset-tag-fire" style="background:rgba(255,105,180,0.1);color:#ff69b4;border-color:rgba(255,105,180,0.3)" data-tag="Романтика">Романтика 😍</button>
             <button type="button" class="preset-tag preset-tag-fire" style="background:rgba(100,149,237,0.1);color:#6495ed;border-color:rgba(100,149,237,0.3)" data-tag="Драма">Драма 🎭</button>
             <button type="button" class="preset-tag preset-tag-fire" style="background:rgba(255,165,0,0.1);color:#ffa500;border-color:rgba(255,165,0,0.3)" data-tag="Комедія">Комедія 😂</button>
             <button type="button" class="preset-tag preset-tag-fire" style="background:rgba(128,128,128,0.1);color:#808080;border-color:rgba(128,128,128,0.3)" data-tag="Кримінальний">Кримінальний 🔫</button>
-            
             <button type="button" class="preset-tag" data-tag="Тройничок">Тройничок 👨‍👩‍👧</button>
             <button type="button" class="preset-tag" data-tag="Гарем">Гарем 👯‍♀️</button>
             <button type="button" class="preset-tag" data-tag="Таймскип">Таймскип ⏳</button>
             <button type="button" class="preset-tag" data-tag="Принуждение">Принуждение 😈</button>
-            
             <button type="button" class="preset-tag" data-tag="рентген">Рентген 🩻</button>
             <button type="button" class="preset-tag" data-tag="ахегао">Ахегао 🤤</button>
             <button type="button" class="preset-tag" data-tag="🔥🔞сцены">🔥🔞 Сцени</button>
@@ -103,8 +117,6 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
             <button type="button" class="preset-tag" data-tag="animated">Animated 🎬</button>
             <button type="button" class="preset-tag" data-tag="футфетиш">Футфетиш 👣</button>
             <button type="button" class="preset-tag" data-tag="бдсм">БДСМ ⛓️</button>
-
-            <!-- 4. Community Stats -->
             <button type="button" class="preset-tag preset-tag-fire" data-tag="Сюжет +">Сюжет 😍</button>
             <button type="button" class="preset-tag preset-tag-fire" data-tag="Графіка +">Графіка ❤️</button>
             <button type="button" class="preset-tag preset-tag-fire" data-tag="Герої +">Герої 😍</button>
@@ -114,24 +126,11 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
           </div>
         </div>
 
-        <!-- Status -->
-        <div class="form-group" style="margin-bottom:16px">
-          <label class="form-label">Статус <span style="color:var(--accent)">*</span></label>
-          <select class="select" id="review-status">
-            <option value="done" ${currentStatus === 'done' ? 'selected' : ''}>✅ Прочитано</option>
-            <option value="reading" ${currentStatus === 'reading' ? 'selected' : ''}>📖 Читаю</option>
-            <option value="planned" ${currentStatus === 'planned' ? 'selected' : ''}>⏳ В планах (Прочитати потім)</option>
-            <option value="dropped" ${currentStatus === 'dropped' ? 'selected' : ''}>❌ Кинув</option>
-          </select>
-        </div>
-
         <!-- Rating -->
         <div class="form-group" style="margin-bottom:24px;text-align:center">
           <label class="form-label" style="display:block;margin-bottom:12px">Оцінка <span style="color:var(--accent)">*</span></label>
           <div style="display:flex;justify-content:center">
-            <div id="interactive-stars-wrap" class="rating-stars-wrapper" style="cursor:pointer;user-select:none">
-               <!-- Rendered dynamically -->
-            </div>
+            <div id="interactive-stars-wrap" class="rating-stars-wrapper" style="cursor:pointer;user-select:none"></div>
           </div>
           <div id="rating-label" style="font-size:1.6rem;font-weight:900;color:var(--accent2);margin-top:12px;font-family:var(--font-display)">
             ${currentStatus === 'dropped' ? 'Кинута' : currentStatus === 'planned' ? '-' : currentRating + '/10'}

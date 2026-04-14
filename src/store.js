@@ -363,6 +363,18 @@ export const TopSites = {
   save: (sites) => localStorage.setItem('mdb_top_sites_v2', JSON.stringify(sites)),
 };
 
+const DEFAULT_TOP_VIDEO_SITES = [
+  { name: 'HentaiHaven', url: 'https://hentaihaven.xxx/', desc: 'Anime 18+' },
+  { name: 'HAnime', url: 'https://hanime.tv/', desc: 'Anime 18+' }
+];
+
+export const TopVideoSites = {
+  all: () => {
+    try { const s = JSON.parse(localStorage.getItem('mdb_top_video_sites_v1')); return s?.length ? s : DEFAULT_TOP_VIDEO_SITES; } catch { return DEFAULT_TOP_VIDEO_SITES; }
+  },
+  save: (sites) => localStorage.setItem('mdb_top_video_sites_v1', JSON.stringify(sites)),
+};
+
 // ---- PLAYLISTS ----
 export const Playlists = {
   byUser: async (userId) => {
