@@ -106,6 +106,24 @@ function computeStats(reviews, metaMap = {}) {
   const topAuthors = Object.entries(authorMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
   const topArtists = Object.entries(artistMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
 
+  // --- Release Years (Eras) ---
+  const eraMap = {};
+  reviews.forEach(r => {
+    const meta = metaMap[r.titleId];
+    if (!meta) return;
+    let yearRaw = meta.anilist?.year || meta.release_year || null;
+    if (!yearRaw) return;
+    
+    // Extract 4-digit year from string like "2024 (Ongoing)" or "2023*"
+    const match = String(yearRaw).match(/\d{4}/);
+    if (match) {
+      const year = match[0];
+      eraMap[year] = (eraMap[year] || 0) + 1;
+    }
+  });
+  // Sort Eras chronologically (ascending)
+  const eraStats = Object.entries(eraMap).sort((a, b) => Number(a[0]) - Number(b[0]));
+
   // --- Totals ---
   const totalReviews = reviews.length;
   const totalChapters = chapCounts.reduce((a, b) => a + b, 0);
@@ -126,6 +144,7 @@ function computeStats(reviews, metaMap = {}) {
     topTags,
     topAuthors,
     topArtists,
+    eraStats,
     totalReviews,
     maxDayCount,
     totalReviewDays,
@@ -243,6 +262,14 @@ function buildStatsHTML(stats, user) {
         <div class="stats-card-title">🏷️ Улюблені теги</div>
         <div class="stats-card-subtitle">Найчастіше вживані теги у ваших рецензіях</div>
         ${buildTagCloud(stats.topTags)}
+      </div>` : ''}
+
+      <!-- Favorite Era -->
+      ${stats.eraStats.length > 0 ? `
+      <div class="stats-card">
+        <div class="stats-card-title">⏳ Улюблена "Ера"</div>
+        <div class="stats-card-subtitle">Розподіл прочитаного за роком випуску манхви</div>
+        ${buildEraChart(stats.eraStats)}
       </div>` : ''}
 
       <!-- Reading pace -->
@@ -525,6 +552,27 @@ function buildMonthlyChart(dayMap) {
           </div>
           <div class="monthly-label">${m.label}</div>
         </div>`).join('')}
+    </div>`;
+}
+
+// ============================================================
+// Era Chart (Chronological Bar Chart)
+// ============================================================
+function buildEraChart(eraStats) {
+  const max = Math.max(...eraStats.map(e => e[1]), 1);
+  return `
+    <div class="bar-chart era-chart">
+      ${eraStats.map(([year, count]) => {
+        const pct = Math.round((count / max) * 100);
+        return `
+          <div class="bar-row">
+            <div class="bar-name" style="width: 50px">${year}</div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width: ${pct}%; background: linear-gradient(90deg, var(--accent2), var(--accent))"></div>
+            </div>
+            <div class="bar-count">${count}</div>
+          </div>`;
+      }).join('')}
     </div>`;
 }
 
