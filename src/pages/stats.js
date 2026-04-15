@@ -177,9 +177,7 @@ function buildStatsHTML(stats, user) {
           <h1 class="stats-title-wrap"><span class="stats-emoji">📊</span><span class="stats-title"> Детальна статистика</span></h1>
           <p class="stats-subtitle">Ваш персональний recap читання</p>
         </div>
-        <button class="btn btn-primary btn-sm" id="stats-refresh-btn">
-          <span id="refresh-icon">🔄</span> Оновити дані
-        </button>
+        </div>
       </div>
 
       <!-- Summary cards -->
@@ -609,57 +607,5 @@ function wireEvents(stats, userId) {
 
   renderHeatmapYear();
 
-  // ---- Scraper refresh ----
-  const refreshBtn = document.getElementById('stats-refresh-btn');
-  const refreshIcon = document.getElementById('refresh-icon');
-
-  refreshBtn?.addEventListener('click', async () => {
-    refreshBtn.disabled = true;
-    refreshIcon.style.animation = 'spin 1s linear infinite';
-    refreshBtn.childNodes[1].textContent = ' Оновлення...';
-
-    try {
-      const res = await fetch('http://localhost:5001/run-scraper', {
-        method: 'POST',
-        signal: AbortSignal.timeout(5000),
-      });
-      if (res.ok) {
-        showToast('⏳ Скрапер запущено! Це займе кілька хвилин.', 'info');
-        // Poll status
-        pollScraperStatus(refreshBtn, refreshIcon);
-      } else {
-        throw new Error(`HTTP ${res.status}`);
-      }
-    } catch (e) {
-      refreshIcon.style.animation = '';
-      refreshBtn.disabled = false;
-      refreshBtn.childNodes[1].textContent = ' Оновити дані';
-      showToast('❌ Не вдалося запустити скрапер. Переконайтеся що scraper_server.js запущено: node scripts/scraper_server.js', 'error');
-    }
-  });
-}
-
-async function pollScraperStatus(btn, iconEl) {
-  const checkInterval = setInterval(async () => {
-    try {
-      const res = await fetch('http://localhost:5001/status', { signal: AbortSignal.timeout(3000) });
-      const data = await res.json();
-      if (data.status !== 'running') {
-        clearInterval(checkInterval);
-        iconEl.style.animation = '';
-        btn.disabled = false;
-        btn.childNodes[1].textContent = ' Оновити дані';
-        if (data.status === 'done') {
-          showToast('✅ Дані оновлено! Перезавантажте сторінку.', 'success');
-        } else if (data.status === 'error') {
-          showToast('❌ Скрапер завершився з помилкою.', 'error');
-        }
-      }
-    } catch {
-      clearInterval(checkInterval);
-      iconEl.style.animation = '';
-      btn.disabled = false;
-      btn.childNodes[1].textContent = ' Оновити дані';
-    }
-  }, 3000);
+  renderHeatmapYear();
 }
