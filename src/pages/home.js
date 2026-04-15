@@ -3,7 +3,7 @@
 // ============================================================
 
 import { Reviews, Users, News, TopSites, TopVideoSites, Session } from '../store.js';
-import { starsHtml, timeAgo, escapeHtml, showLoader, formatTag } from '../utils.js';
+import { starsHtml, timeAgo, escapeHtml, showLoader, formatTag, showToast } from '../utils.js';
 import { navigate } from '../router.js';
 
 export async function renderHome() {
@@ -108,7 +108,13 @@ export async function renderHome() {
     el.addEventListener('click', () => navigate(`review/${el.dataset.reviewId}`));
   });
   container.querySelectorAll('[data-title-id]').forEach(el => {
-    el.addEventListener('click', () => navigate(`title/${el.dataset.titleId}`));
+    el.addEventListener('click', () => {
+      if (!Session.currentUser()) {
+        showToast('Щоб переглянути рецензії — зареєструйтеся 👤', 'warning');
+        return;
+      }
+      navigate(`title/${el.dataset.titleId}`);
+    });
   });
 
   // Search
