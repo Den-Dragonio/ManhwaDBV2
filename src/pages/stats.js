@@ -124,6 +124,28 @@ function computeStats(reviews, metaMap = {}) {
   // Sort Eras chronologically (ascending)
   const eraStats = Object.entries(eraMap).sort((a, b) => Number(a[0]) - Number(b[0]));
 
+  // --- Reviews by Year (for navigation) ---
+  const reviewsByYear = {};
+  reviews.forEach(r => {
+    const raw = r.date || r.createdAt;
+    if (!raw) return;
+    const year = new Date(raw).getFullYear();
+    reviewsByYear[year] = (reviewsByYear[year] || 0) + 1;
+  });
+
+  // --- Chapter Length frequencies ---
+  const lengthFreq = {};
+  reviews.forEach(r => {
+    const caps = Number(r.chapters);
+    if (caps > 0) {
+      lengthFreq[caps] = (lengthFreq[caps] || 0) + 1;
+    }
+  });
+  const topChapterLengths = Object.entries(lengthFreq)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([len, count]) => ({ length: len, count }));
+
   // --- Totals ---
   const totalReviews = reviews.length;
   const totalChapters = chapCounts.reduce((a, b) => a + b, 0);
@@ -145,6 +167,8 @@ function computeStats(reviews, metaMap = {}) {
     topAuthors,
     topArtists,
     eraStats,
+    reviewsByYear,
+    topChapterLengths,
     totalReviews,
     maxDayCount,
     totalReviewDays,
@@ -171,12 +195,11 @@ function buildStatsHTML(stats, user) {
   return `
     <div class="page-container stats-page">
       <!-- Header -->
-      <div class="stats-header">
-        <button class="btn btn-secondary btn-sm" id="stats-back-btn">← Назад</button>
-        <div>
+      <div class="stats-header centered">
+        <button class="btn btn-secondary btn-sm stats-back-abs" id="stats-back-btn">← Назад</button>
+        <div class="stats-header-content">
           <h1 class="stats-title-wrap"><span class="stats-emoji">📊</span><span class="stats-title"> Детальна статистика</span></h1>
           <p class="stats-subtitle">Ваш персональний recap читання</p>
-        </div>
         </div>
       </div>
 
@@ -184,7 +207,6 @@ function buildStatsHTML(stats, user) {
       <div class="stats-summary-grid">
         ${summaryCard('📚', stats.totalReviews, 'Всього рецензій')}
         ${summaryCard('⭐', stats.avgRating, 'Середня оцінка')}
-        ${summaryCard('📖', stats.totalChapters.toLocaleString('uk-UA'), 'Розділів прочитано')}
         ${summaryCard('🔥', stats.currentStreak, 'Днів поспіль')}
         ${summaryCard('📅', stats.totalReviewDays, 'Активних днів')}
         ${summaryCard('📐', stats.avgChapters, 'Глав в середньому')}
@@ -198,9 +220,14 @@ function buildStatsHTML(stats, user) {
             <div class="stats-card-subtitle">Кількість рецензій по днях — наведіть для деталей</div>
           </div>
           <div class="heatmap-year-nav">
-            <button class="heatmap-nav-btn" id="heatmap-prev-btn" aria-label="Попередній рік">&#8592;</button>
-            <span class="heatmap-nav-year" id="heatmap-year-label"></span>
-            <button class="heatmap-nav-btn" id="heatmap-next-btn" aria-label="Наступний рік">&#8594;</button>
+            <div class="heatmap-year-info">
+              <span class="heatmap-nav-year" id="heatmap-year-label"></span>
+              <span class="heatmap-year-count" id="heatmap-year-count"></span>
+            </div>
+            <div class="heatmap-nav-btns">
+              <button class="heatmap-nav-btn" id="heatmap-prev-btn" aria-label="Попередній рік">&#8592;</button>
+              <button class="heatmap-nav-btn" id="heatmap-next-btn" aria-label="Наступний рік">&#8594;</button>
+            </div>
           </div>
         </div>
         <div id="heatmap-container"></div>
@@ -471,17 +498,36 @@ function buildChapterStats(stats) {
     { icon: '📍', label: 'Медіана', value: stats.medianChapters },
     { icon: '📉', label: 'Мінімум', value: stats.minChapters },
     { icon: '📈', label: 'Максимум', value: stats.maxChapters },
-    { icon: '📚', label: 'Всього', value: stats.totalChapters.toLocaleString('uk-UA') },
+    { icon: '📚', label: 'Всього глав', value: stats.totalChapters.toLocaleString('uk-UA') },
   ];
 
+  let popularHtml = '';
+  if (stats.topChapterLengths && stats.topChapterLengths.length > 0) {
+    popularHtml = `
+      <div class="popular-lengths">
+        <div class="popular-lengths-title">🏆 Найчастіша довжина манхв:</div>
+        <div class="popular-lengths-list">
+          ${stats.topChapterLengths.map(item => `
+            <div class="popular-length-item">
+              <span class="p-len-val">${item.length} глав</span>
+              <span class="p-len-count">${item.count} манхв</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>`;
+  }
+
   return `
-    <div class="chapter-stats-grid">
-      ${items.map(i => `
-        <div class="chapter-stat-card">
-          <div class="chapter-stat-icon">${i.icon}</div>
-          <div class="chapter-stat-value">${i.value}</div>
-          <div class="chapter-stat-label">${i.label}</div>
-        </div>`).join('')}
+    <div class="chapter-stats-block">
+      <div class="chapter-stats-grid">
+        ${items.map(i => `
+          <div class="chapter-stat-card">
+            <div class="chapter-stat-icon">${i.icon}</div>
+            <div class="chapter-stat-value">${i.value}</div>
+            <div class="chapter-stat-label">${i.label}</div>
+          </div>`).join('')}
+      </div>
+      ${popularHtml}
     </div>`;
 }
 
@@ -593,6 +639,14 @@ function wireEvents(stats, userId) {
     if (yearLabel) yearLabel.textContent = _heatmapYear;
     if (prevBtn) prevBtn.disabled = _heatmapYear <= HEATMAP_START_YEAR;
     if (nextBtn) nextBtn.disabled = _heatmapYear >= currentYear;
+    
+    // Update yearly count
+    const yearCountEl = document.getElementById('heatmap-year-count');
+    if (yearCountEl) {
+      const count = stats.reviewsByYear[_heatmapYear] || 0;
+      yearCountEl.textContent = `(${count} прочитано)`;
+    }
+
     if (heatmapContainer) {
       heatmapContainer.innerHTML = buildHeatmapForYear(_heatmapYear, stats.dayMap, stats.maxDayCount);
     }
