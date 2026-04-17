@@ -5,6 +5,7 @@
 import { Reviews, Session, MangaMetadata } from '../store.js';
 import { escapeHtml, showToast, showLoader } from '../utils.js';
 import { navigate } from '../router.js';
+import { t, getMonths } from '../i18n.js';
 
 export async function renderStats() {
   const user = Session.currentUser();
@@ -51,11 +52,13 @@ function computeStats(reviews, metaMap = {}) {
 
   // --- Rating distribution ---
   const ratingDist = Array(11).fill(0); // index 0 unused, 1-10
+  const ratingTitles = Array(11).fill().map(() => []);
   let ratingSum = 0, ratingCount = 0;
   reviews.forEach(r => {
     const rating = Math.round(r.rating);
     if (rating >= 1 && rating <= 10) {
       ratingDist[rating]++;
+      if (r.title) ratingTitles[rating].push(r.title);
       ratingSum += r.rating;
       ratingCount++;
     }
@@ -133,29 +136,44 @@ function computeStats(reviews, metaMap = {}) {
     reviewsByYear[year] = (reviewsByYear[year] || 0) + 1;
   });
 
-  // --- Chapter Length frequencies ---
+  // --- Chapter Length frequencies (buckets of 20) ---
   const lengthFreq = {};
   reviews.forEach(r => {
     const caps = Number(r.chapters);
-    if (caps > 0) {
-      lengthFreq[caps] = (lengthFreq[caps] || 0) + 1;
+    if (caps > 20) {
+      const bucketIdx = Math.floor((caps - 1) / 20);
+      const start = bucketIdx * 20 + 1;
+      const end = start + 19;
+      const bucketKey = `${start}-${end}`;
+      
+      if (!lengthFreq[bucketKey]) {
+        lengthFreq[bucketKey] = {
+            count: 0,
+            chaptersDist: {}
+        };
+      }
+      lengthFreq[bucketKey].count++;
+      lengthFreq[bucketKey].chaptersDist[caps] = (lengthFreq[bucketKey].chaptersDist[caps] || 0) + 1;
     }
   });
+  
   const topChapterLengths = Object.entries(lengthFreq)
-    .sort((a, b) => b[1] - a[1])
+    .filter(([_, data]) => data.count > 1)
+    .sort((a, b) => b[1].count - a[1].count)
     .slice(0, 5)
-    .map(([len, count]) => ({ length: len, count }));
+    .map(([range, data]) => ({ length: range, count: data.count, details: data.chaptersDist }));
 
   // --- Totals ---
   const totalReviews = reviews.length;
   const totalChapters = chapCounts.reduce((a, b) => a + b, 0);
   const maxDayCount = Math.max(...Object.values(dayMap).map(d => d.count), 1);
   const totalReviewDays = Object.keys(dayMap).length;
-  const currentStreak = computeStreak(dayMap);
+  const { currentStreak, bestStreak, bestDate } = computeStreak(dayMap);
 
   return {
     dayMap,
     ratingDist,
+    ratingTitles,
     avgRating,
     statusMap,
     avgChapters,
@@ -173,19 +191,43 @@ function computeStats(reviews, metaMap = {}) {
     maxDayCount,
     totalReviewDays,
     currentStreak,
+    bestStreak,
+    bestDate,
     ratingCount,
   };
 }
 
 function computeStreak(dayMap) {
-  let streak = 0;
+  let currentStreak = 0;
   const cur = new Date();
   while (true) {
     const key = cur.toISOString().slice(0, 10);
-    if (dayMap[key]) { streak++; cur.setDate(cur.getDate() - 1); }
+    if (dayMap[key]) { currentStreak++; cur.setDate(cur.getDate() - 1); }
     else break;
   }
-  return streak;
+  let bestStreak = 0;
+  let bestDate = null;
+  const dates = Object.keys(dayMap).sort();
+  if (dates.length > 0) {
+    let tempStreak = 1;
+    bestStreak = 1;
+    bestDate = dates[0];
+    for (let i = 1; i < dates.length; i++) {
+      const prev = new Date(dates[i-1]);
+      const curr = new Date(dates[i]);
+      const diffDays = Math.round((curr - prev) / (1000 * 60 * 60 * 24));
+      if (diffDays === 1) {
+        tempStreak++;
+      } else {
+        tempStreak = 1;
+      }
+      if (tempStreak > bestStreak) {
+        bestStreak = tempStreak;
+        bestDate = dates[i];
+      }
+    }
+  }
+  return { currentStreak, bestStreak, bestDate };
 }
 
 // ============================================================
@@ -196,28 +238,28 @@ function buildStatsHTML(stats, user) {
     <div class="page-container stats-page">
       <!-- Header -->
       <div class="stats-header centered">
-        <button class="btn btn-secondary btn-sm stats-back-abs" id="stats-back-btn">← Назад</button>
+        <button class="btn btn-secondary btn-sm stats-back-abs" id="stats-back-btn">${t('btn_back')}</button>
         <div class="stats-header-content">
-          <h1 class="stats-title-wrap"><span class="stats-emoji">📊</span><span class="stats-title"> Детальна статистика</span></h1>
-          <p class="stats-subtitle">Ваш персональний recap читання</p>
+          <h1 class="stats-title-wrap"><span class="stats-emoji">📊</span><span class="stats-title"> ${t('stats_title')}</span></h1>
+          <p class="stats-subtitle">${t('stats_subtitle')}</p>
         </div>
       </div>
 
       <!-- Summary cards -->
       <div class="stats-summary-grid">
-        ${summaryCard('📚', stats.totalReviews, 'Всього рецензій')}
-        ${summaryCard('⭐', stats.avgRating, 'Середня оцінка')}
-        ${summaryCard('🔥', stats.currentStreak, 'Днів поспіль')}
-        ${summaryCard('📅', stats.totalReviewDays, 'Активних днів')}
-        ${summaryCard('📐', stats.avgChapters, 'Глав в середньому')}
+        ${summaryCard('📚', stats.totalReviews, t('total_reviews'))}
+        ${summaryCard('⭐', stats.avgRating, t('avg_rating'))}
+        ${summaryCard('🔥', stats.currentStreak, t('streak_label'))}
+        ${stats.bestStreak > 0 ? summaryCard('🏆', stats.bestStreak, t('best_streak') + (stats.bestDate ? `<br>(${stats.bestDate})` : '')) : ''}
+        ${summaryCard('📅', stats.totalReviewDays, t('active_days'))}
       </div>
 
       <!-- Activity Heatmap -->
       <div class="stats-card">
         <div class="stats-card-heatmap-header">
           <div>
-            <div class="stats-card-title">📅 Активність</div>
-            <div class="stats-card-subtitle">Кількість рецензій по днях — наведіть для деталей</div>
+            <div class="stats-card-title">${t('activity')}</div>
+            <div class="stats-card-subtitle">${t('activity_sub')}</div>
           </div>
           <div class="heatmap-year-nav">
             <div class="heatmap-year-info">
@@ -237,23 +279,23 @@ function buildStatsHTML(stats, user) {
       <div class="stats-two-col">
         <!-- Rating histogram -->
         <div class="stats-card">
-          <div class="stats-card-title">⭐ Розподіл оцінок</div>
-          <div class="stats-card-subtitle">${stats.ratingCount} оцінених рецензій</div>
-          ${buildRatingHistogram(stats.ratingDist)}
+          <div class="stats-card-title">${t('rating_dist')}</div>
+          <div class="stats-card-subtitle">${stats.ratingCount} ${t('rating_dist_sub')}</div>
+          ${buildRatingHistogram(stats.ratingDist, stats.ratingTitles)}
         </div>
 
         <!-- Status donut -->
         <div class="stats-card">
-          <div class="stats-card-title">📂 Статус читання</div>
-          <div class="stats-card-subtitle">Розподіл за статусами</div>
+          <div class="stats-card-title">${t('read_status')}</div>
+          <div class="stats-card-subtitle">${t('status_sub')}</div>
           ${buildStatusDonut(stats.statusMap)}
         </div>
       </div>
 
       <!-- Chapter stats -->
       <div class="stats-card">
-        <div class="stats-card-title">📏 Довжина манхв</div>
-        <div class="stats-card-subtitle">Статистика по кількості розділів</div>
+        <div class="stats-card-title">${t('chapters_len')}</div>
+        <div class="stats-card-subtitle">${t('chapters_len_sub')}</div>
         ${buildChapterStats(stats)}
       </div>
 
@@ -262,45 +304,45 @@ function buildStatsHTML(stats, user) {
       <div class="stats-two-col">
         ${stats.topAuthors.length > 0 ? `
         <div class="stats-card">
-          <div class="stats-card-title">✍️ Топ авторів</div>
-          <div class="stats-card-subtitle">З даних скрапера (AniList / ToonGod)</div>
+          <div class="stats-card-title">${t('top_authors')}</div>
+          <div class="stats-card-subtitle">${t('authors_sub')}</div>
           ${buildBarChart(stats.topAuthors)}
         </div>` : ''}
         ${stats.topArtists.length > 0 ? `
         <div class="stats-card">
-          <div class="stats-card-title">🎨 Топ художників</div>
-          <div class="stats-card-subtitle">З даних скрапера (AniList / ToonGod)</div>
+          <div class="stats-card-title">${t('top_artists')}</div>
+          <div class="stats-card-subtitle">${t('authors_sub')}</div>
           ${buildBarChart(stats.topArtists)}
         </div>` : ''}
       </div>` : `
       <div class="stats-card">
-        <div class="stats-card-title">✍️ Топ авторів та 🎨 художників</div>
-        <div class="stats-card-subtitle">Дані зантаються з скрапера</div>
+        <div class="stats-card-title">${t('top_authors')} & ${t('top_artists')}</div>
+        <div class="stats-card-subtitle">${t('authors_sub')}</div>
         <div style="color:var(--text-muted);font-size:0.9rem;padding:16px 0">
-          💡 Для відображення авторів та художників натисніть <strong>"Оновити дані"</strong> щоб скрапер завантажив метадані з AniList / ToonGod.
+          💡 ${t('no_data')} // To view authors/artists, update metadata using scraper.
         </div>
       </div>`}
 
       <!-- Top tags -->
       ${stats.topTags.length > 0 ? `
       <div class="stats-card">
-        <div class="stats-card-title">🏷️ Улюблені теги</div>
-        <div class="stats-card-subtitle">Найчастіше вживані теги у ваших рецензіях</div>
+        <div class="stats-card-title">${t('fav_tags')}</div>
+        <div class="stats-card-subtitle">${t('fav_tags_sub')}</div>
         ${buildTagCloud(stats.topTags)}
       </div>` : ''}
 
       <!-- Favorite Era -->
       ${stats.eraStats.length > 0 ? `
       <div class="stats-card">
-        <div class="stats-card-title">⏳ Улюблена "Ера"</div>
-        <div class="stats-card-subtitle">Розподіл прочитаного за роком випуску манхви</div>
+        <div class="stats-card-title">${t('fav_era')}</div>
+        <div class="stats-card-subtitle">${t('fav_era_sub')}</div>
         ${buildEraChart(stats.eraStats)}
       </div>` : ''}
 
       <!-- Reading pace -->
       <div class="stats-card">
-        <div class="stats-card-title">📈 Темп читання</div>
-        <div class="stats-card-subtitle">Рецензії по місяцях за останній рік</div>
+        <div class="stats-card-title">${t('read_pace')}</div>
+        <div class="stats-card-subtitle">${t('read_pace_sub')}</div>
         ${buildMonthlyChart(stats.dayMap)}
       </div>
     </div>
@@ -323,7 +365,7 @@ let _heatmapYear = new Date().getFullYear(); // module-level state
 const HEATMAP_START_YEAR = 2024;
 
 function buildHeatmapForYear(year, dayMap, maxCount) {
-  const UA_MONTHS = ['Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
+  const UA_MONTHS = getMonths();
   const today = new Date();
   today.setHours(23, 59, 59, 999);
   const isCurrentYear = year === today.getFullYear();
@@ -409,14 +451,20 @@ function buildHeatmapForYear(year, dayMap, maxCount) {
 // ============================================================
 // Rating Histogram
 // ============================================================
-function buildRatingHistogram(dist) {
+function buildRatingHistogram(dist, titles) {
   const max = Math.max(...dist.slice(1), 1);
   const bars = dist.slice(1).map((count, i) => {
     const rating = i + 1;
     const pct = Math.round((count / max) * 100);
     const colors = ['#ef4444','#f97316','#f97316','#eab308','#eab308','#84cc16','#84cc16','#22c55e','#22c55e','#10b981'];
+    
+    let tooltip = '';
+    if (count > 0 && titles && titles[rating]) {
+      tooltip = `title="★ ${rating}&#10;${titles[rating].map(t => '• ' + t.replace(/"/g, '&quot;')).join('&#10;')}"`;
+    }
+
     return `
-      <div class="rh-bar-wrap">
+      <div class="rh-bar-wrap" ${tooltip}>
         <div class="rh-count">${count}</div>
         <div class="rh-bar-bg">
           <div class="rh-bar-fill" style="height:${pct}%;background:${colors[i]}" data-pct="${pct}"></div>
@@ -435,10 +483,10 @@ function buildStatusDonut(statusMap) {
   if (total === 0) return `<div class="empty-state" style="padding:20px"><h3>Немає даних</h3></div>`;
 
   const items = [
-    { key: 'done',    label: 'Прочитано', color: '#22c55e' },
-    { key: 'reading', label: 'Читаю',     color: '#3b82f6' },
-    { key: 'planned', label: 'В планах',  color: '#a855f7' },
-    { key: 'dropped', label: 'Кинуто',    color: '#ef4444' },
+    { key: 'done',    label: t('status_done'),    color: '#22c55e' },
+    { key: 'reading', label: t('status_reading'), color: '#3b82f6' },
+    { key: 'planned', label: t('status_planned'), color: '#a855f7' },
+    { key: 'dropped', label: t('status_dropped'), color: '#ef4444' },
   ];
 
   const r = 60, cx = 80, cy = 80, stroke = 22;
@@ -491,28 +539,32 @@ function buildStatusDonut(statusMap) {
 // Chapter Stats
 // ============================================================
 function buildChapterStats(stats) {
-  if (!stats.avgChapters) return `<div class="empty-state" style="padding:20px"><h3>Немає даних по розділах</h3></div>`;
+  if (!stats.avgChapters) return `<div class="empty-state" style="padding:20px"><h3>${t('no_data')}</h3></div>`;
 
   const items = [
-    { icon: '📊', label: 'Середнє', value: stats.avgChapters },
-    { icon: '📍', label: 'Медіана', value: stats.medianChapters },
-    { icon: '📉', label: 'Мінімум', value: stats.minChapters },
-    { icon: '📈', label: 'Максимум', value: stats.maxChapters },
-    { icon: '📚', label: 'Всього глав', value: stats.totalChapters.toLocaleString('uk-UA') },
+    { icon: '📊', label: t('avg_lbl'), value: stats.avgChapters },
+    { icon: '📍', label: t('median_lbl'), value: stats.medianChapters },
+    { icon: '📉', label: t('min_lbl'), value: stats.minChapters },
+    { icon: '📈', label: t('max_lbl'), value: stats.maxChapters },
+    { icon: '📚', label: t('total_chap_lbl'), value: stats.totalChapters.toLocaleString('uk-UA') },
   ];
 
   let popularHtml = '';
   if (stats.topChapterLengths && stats.topChapterLengths.length > 0) {
     popularHtml = `
       <div class="popular-lengths">
-        <div class="popular-lengths-title">🏆 Найчастіша довжина манхв:</div>
+        <div class="popular-lengths-title">${t('popular_lengths')}</div>
         <div class="popular-lengths-list">
-          ${stats.topChapterLengths.map(item => `
-            <div class="popular-length-item">
-              <span class="p-len-val">${item.length} глав</span>
-              <span class="p-len-count">${item.count} манхв</span>
-            </div>
-          `).join('')}
+          ${stats.topChapterLengths.map(item => {
+            const dist = item.details || {};
+            const distList = Object.entries(dist).sort((a,b)=>Number(a[0])-Number(b[0])).map(([chps, c]) => `• ${chps} ${t('chapters')}: ${c} ${t('mangas')}`).join('&#10;');
+            const titleAttr = distList ? `title="${distList}"` : '';
+            return `
+            <div class="popular-length-item" ${titleAttr}>
+              <span class="p-len-val">${item.length} ${t('chapters')}</span>
+              <span class="p-len-count">${item.count} ${t('mangas')}</span>
+            </div>`;
+          }).join('')}
         </div>
       </div>`;
   }
@@ -568,7 +620,7 @@ function buildTagCloud(tags) {
 // Monthly chart (last 12 months)
 // ============================================================
 function buildMonthlyChart(dayMap) {
-  const UA_MONTHS = ['Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
+  const UA_MONTHS = getMonths();
   const monthCounts = {};
   Object.entries(dayMap).forEach(([date, dObj]) => {
     const m = date.slice(0, 7); // YYYY-MM

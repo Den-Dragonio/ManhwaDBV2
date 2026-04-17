@@ -2,6 +2,7 @@
 // pages/account.js — My Account page (async Firestore)
 // ============================================================
 
+import { t, getCurrentLang, setLang } from '../i18n.js';
 import { Users, Reviews, Playlists, Session } from '../store.js';
 import { compressAvatar, starsHtml, avatarHtml, timeAgo, formatDate, escapeHtml, showToast, showLoader, applyTheme } from '../utils.js';
 import { navigate } from '../router.js';
@@ -314,6 +315,14 @@ function showEditModal(user) {
         </div>
         <div class="modal-body">
           <div class="form-group" style="margin-bottom:14px">
+            <label class="form-label">${t('lang_setting')}</label>
+            <select class="select" id="edit-lang">
+              <option value="uk" ${getCurrentLang() === 'uk' ? 'selected' : ''}>${t('lang_uk')}</option>
+              <option value="en" ${getCurrentLang() === 'en' ? 'selected' : ''}>${t('lang_en')}</option>
+              <option value="ru" ${getCurrentLang() === 'ru' ? 'selected' : ''}>${t('lang_ru')}</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:14px">
             <label class="form-label">Тема сайту</label>
             <select class="select" id="edit-theme">
               <option value="system" ${localStorage.getItem('theme') === 'system' || !localStorage.getItem('theme') ? 'selected' : ''}>🖥️ Системна тема</option>
@@ -371,7 +380,7 @@ function showEditModal(user) {
   };
 
   holder.querySelectorAll('#edit-old-password, #edit-new-password, #edit-bio').forEach(el => el.addEventListener('input', enableSave));
-  holder.querySelectorAll('#edit-theme, #edit-push').forEach(el => el.addEventListener('change', enableSave));
+  holder.querySelectorAll('#edit-theme, #edit-push, #edit-lang').forEach(el => el.addEventListener('change', enableSave));
 
   saveBtn.addEventListener('click', async () => {
     const bio = document.getElementById('edit-bio').value.trim();
@@ -379,6 +388,7 @@ function showEditModal(user) {
     const oldPw = document.getElementById('edit-old-password').value;
     const newPw = document.getElementById('edit-new-password').value;
     const theme = document.getElementById('edit-theme').value;
+    const lang = document.getElementById('edit-lang').value;
     const pushEnabled = document.getElementById('edit-push').checked;
     const errEl = document.getElementById('edit-error');
     const saveBtn = document.getElementById('save-edit-btn');
@@ -387,6 +397,9 @@ function showEditModal(user) {
     // Apply theme & push settings
     applyTheme(theme);
     localStorage.setItem('push_enabled', pushEnabled);
+    if (lang !== getCurrentLang()) {
+      setLang(lang); // This will reload the page automatically
+    }
 
     if (oldPw || newPw) {
       const result = await changePassword(user.id, oldPw, newPw);
