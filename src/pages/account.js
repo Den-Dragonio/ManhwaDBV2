@@ -85,7 +85,7 @@ export async function renderAccountPage(userId, isOwn = false) {
         ${reviews.length === 0
       ? `<div class="empty-state"><div class="empty-icon">📖</div><h3>Ще немає рецензій</h3>${isOwn ? `<p><button class="btn btn-primary btn-sm" id="add-first-review">✍️ Написати першу</button></p>` : ''}</div>`
       : `<div class="manhwa-grid recent-grid">
-              ${reviews.slice(0, 10).map(r => `
+              ${[...reviews].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 10).map(r => `
                 <div class="manhwa-thumb-wrap" style="display:flex;flex-direction:column;align-items:center;cursor:pointer" data-review-id="${r.id}" title="${escapeHtml(r.title)}">
                   <div class="manhwa-thumb">
                     ${r.coverBase64 ? `<img src="${r.coverBase64}" alt="${escapeHtml(r.title)}">` : `<div class="manhwa-thumb-placeholder">📖</div>`}
