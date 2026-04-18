@@ -53,7 +53,7 @@ export async function renderAccountPage(userId, isOwn = false) {
             <div class="profile-stat"><div class="stat-value">${reviews.filter(r => r.status === 'planned').length}</div><div class="stat-label">В планах</div></div>
             <div class="profile-stat"><div class="stat-value">${reviews.filter(r => r.status === 'dropped').length}</div><div class="stat-label">Кинуто</div></div>
           </div>
-          ${isOwn ? `<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-secondary btn-sm" id="edit-account-btn">⚙️ Налаштування</button><button class="btn btn-secondary btn-sm" id="stats-btn">📊 Детальна інформація</button></div>` : ''}
+          ${isOwn ? `<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-secondary btn-sm" id="edit-account-btn">⚙️ Налаштування</button><button class="btn btn-secondary btn-sm" id="stats-btn" style="${reviews.length < 10 ? 'opacity:0.6;cursor:default' : ''}">📊 Детальна інформація</button></div>` : ''}
           <div id="friend-btn-area"></div>
         </div>
       </div>
@@ -148,7 +148,13 @@ export async function renderAccountPage(userId, isOwn = false) {
     });
 
     document.getElementById('edit-account-btn')?.addEventListener('click', () => showEditModal(user));
-    document.getElementById('stats-btn')?.addEventListener('click', () => navigate('stats'));
+    document.getElementById('stats-btn')?.addEventListener('click', () => {
+      if (reviews.length < 10) {
+        showToast(`📊 Детальна статистика доступна після 10 рецензій (у вас ${reviews.length})`, 'info');
+        return;
+      }
+      navigate('stats');
+    });
 
     // Top4 slots
     container.querySelectorAll('[data-slot]').forEach(slot => {

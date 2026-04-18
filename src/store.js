@@ -353,7 +353,8 @@ const DEFAULT_TOP_SITES = [
   { name: 'AllHen', url: 'https://20.allhen.online/', desc: '18+' },
   { name: 'Desu', url: 'https://desu.uno/', desc: '18+' },
   { name: 'HentaiChan', url: 'https://hentaichan.live/', desc: '18+' },
-  { name: 'imhentai', url: 'https://imhentai.xxx/', desc: '18+' }
+  { name: 'imhentai', url: 'https://imhentai.xxx/', desc: '18+' },
+  { name: 'Remanga', url: 'https://remanga.org/', desc: '18+' }
 ];
 
 export const TopSites = {
