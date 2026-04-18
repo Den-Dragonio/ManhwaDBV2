@@ -43,6 +43,8 @@ const translations = {
     popular_lengths: "🏆 Most Frequent Lengths:",
     chapters: "chapters",
     mangas: "titles",
+    correlation_title: "📉 Correlation",
+    correlation_sub: "Chapters (X) to Rating (Y)",
     
     // Account settings
     lang_setting: "Interface Language",
@@ -92,6 +94,8 @@ const translations = {
     popular_lengths: "🏆 Найчастіша довжина:",
     chapters: "глав",
     mangas: "манхв",
+    correlation_title: "📉 Кореляція",
+    correlation_sub: "Кількість глав (X) до оцінки (Y)",
 
     // Account settings
     lang_setting: "Мова інтерфейсу",
@@ -141,6 +145,8 @@ const translations = {
     popular_lengths: "🏆 Частая длина:",
     chapters: "глав",
     mangas: "манхв",
+    correlation_title: "📉 Корреляция",
+    correlation_sub: "Количество глав (X) к оценке (Y)",
 
     // Account settings
     lang_setting: "Язык интерфейса",

@@ -170,6 +170,21 @@ function computeStats(reviews, metaMap = {}) {
   const totalReviewDays = Object.keys(dayMap).length;
   const { currentStreak, bestStreak, bestDate } = computeStreak(dayMap);
 
+  const scatterData = reviews
+    .filter(r => {
+      if (r.chapters <= 0 || r.rating <= 0) return false;
+      const tList = (r.tags || []).map(t => t.toLowerCase());
+      if (tList.includes('манга')) return false;
+      if (!tList.includes('манхва')) return false;
+      return true;
+    })
+    .map(r => ({
+      title: r.title,
+      chapters: Number(r.chapters),
+      rating: Number(r.rating),
+      date: r.date || r.createdAt.substring(0, 10)
+    }));
+
   return {
     dayMap,
     ratingDist,
@@ -194,6 +209,7 @@ function computeStats(reviews, metaMap = {}) {
     bestStreak,
     bestDate,
     ratingCount,
+    scatterData,
   };
 }
 
@@ -299,6 +315,27 @@ function buildStatsHTML(stats, user) {
         ${buildChapterStats(stats)}
       </div>
 
+      <!-- Correlation Graph -->
+      <div class="stats-card correlation-card">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div>
+            <div class="stats-card-title">${t('correlation_title')}</div>
+            <div class="stats-card-subtitle">${t('correlation_sub')}</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+             <span style="font-size:0.75rem; color:var(--text-muted); font-weight:600;">Вид:</span>
+             <div class="switch-control" style="display:flex; align-items:center; background:var(--bg-surface); border:1px solid var(--border); border-radius:12px; overflow:hidden;">
+               <button id="corr-view-prev" class="btn btn-ghost btn-xs" style="padding:4px 6px;">◀</button>
+               <span id="corr-view-label" style="font-size:0.75rem; font-weight:700; width:60px; text-align:center;">Базовий</span>
+               <button id="corr-view-next" class="btn btn-ghost btn-xs" style="padding:4px 6px;">▶</button>
+             </div>
+          </div>
+        </div>
+        <div id="correlation-graph-container">
+          ${buildCorrelationGraph(stats.scatterData, 'dots')}
+        </div>
+      </div>
+
       <!-- Authors + Artists -->
       ${(stats.topAuthors.length > 0 || stats.topArtists.length > 0) ? `
       <div class="stats-two-col">
@@ -341,11 +378,23 @@ function buildStatsHTML(stats, user) {
 
       <!-- Reading pace -->
       <div class="stats-card">
-        <div class="stats-card-title">${t('read_pace')}</div>
-        <div class="stats-card-subtitle">${t('read_pace_sub')}</div>
-        ${buildMonthlyChart(stats.dayMap)}
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div>
+            <div class="stats-card-title">${t('read_pace')}</div>
+            <div class="stats-card-subtitle">${t('read_pace_sub')}</div>
+          </div>
+          <div class="switch-control" style="display:flex; align-items:center; background:var(--bg-surface); border:1px solid var(--border); border-radius:12px; overflow:hidden;">
+            <button id="pace-prev-btn" class="btn btn-ghost btn-xs" style="padding:4px 6px;">◀</button>
+            <span id="pace-year-label" style="font-size:0.75rem; font-weight:700; width:40px; text-align:center;">${_paceYear}</span>
+            <button id="pace-next-btn" class="btn btn-ghost btn-xs" style="padding:4px 6px;">▶</button>
+          </div>
+        </div>
+        <div id="monthly-chart-container">
+          ${buildMonthlyChart(stats.dayMap, _paceYear)}
+        </div>
       </div>
     </div>
+
   `;
 }
 
@@ -362,6 +411,7 @@ function summaryCard(icon, value, label) {
 // Heatmap — single year view with arrow navigation
 // ============================================================
 let _heatmapYear = new Date().getFullYear(); // module-level state
+let _paceYear = new Date().getFullYear(); // module-level state
 const HEATMAP_START_YEAR = 2024;
 
 function buildHeatmapForYear(year, dayMap, maxCount) {
@@ -463,13 +513,17 @@ function buildRatingHistogram(dist, titles) {
       tooltip = `title="★ ${rating}&#10;${titles[rating].map(t => '• ' + t.replace(/"/g, '&quot;')).join('&#10;')}"`;
     }
 
+    let labelStr = rating;
+    if (rating === 10) labelStr = '10⭐';
+    if (rating === 1) labelStr = '1🗑️';
+
     return `
       <div class="rh-bar-wrap" ${tooltip}>
         <div class="rh-count">${count}</div>
         <div class="rh-bar-bg">
           <div class="rh-bar-fill" style="height:${pct}%;background:${colors[i]}" data-pct="${pct}"></div>
         </div>
-        <div class="rh-label">${rating}</div>
+        <div class="rh-label">${labelStr}</div>
       </div>`;
   }).join('');
   return `<div class="rating-histogram">${bars}</div>`;
@@ -619,7 +673,7 @@ function buildTagCloud(tags) {
 // ============================================================
 // Monthly chart (last 12 months)
 // ============================================================
-function buildMonthlyChart(dayMap) {
+function buildMonthlyChart(dayMap, targetYear) {
   const UA_MONTHS = getMonths();
   const monthCounts = {};
   Object.entries(dayMap).forEach(([date, dObj]) => {
@@ -627,13 +681,11 @@ function buildMonthlyChart(dayMap) {
     monthCounts[m] = (monthCounts[m] || 0) + dObj.count;
   });
 
-  // Last 12 full months
+  // Target Year: 12 months (Jan - Dec)
   const months = [];
-  const now = new Date();
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    months.push({ key, label: UA_MONTHS[d.getMonth()], count: monthCounts[key] || 0 });
+  for (let i = 0; i < 12; i++) {
+    const key = `${targetYear}-${String(i + 1).padStart(2, '0')}`;
+    months.push({ key, label: UA_MONTHS[i], count: monthCounts[key] || 0 });
   }
 
   const max = Math.max(...months.map(m => m.count), 1);
@@ -714,4 +766,262 @@ function wireEvents(stats, userId) {
   renderHeatmapYear();
 
   renderHeatmapYear();
+
+  // ---- Correlation Graph View Switcher ----
+  let corrViewMode = 'dots'; // 'dots' or 'heat'
+  const corrLabel = document.getElementById('corr-view-label');
+  const corrContainer = document.getElementById('correlation-graph-container');
+
+  function updateCorrView() {
+    if (corrLabel) corrLabel.textContent = corrViewMode === 'dots' ? 'Базовий' : 'Тепловий';
+    if (corrContainer) {
+      corrContainer.innerHTML = buildCorrelationGraph(stats.scatterData, corrViewMode);
+    }
+  }
+
+  document.getElementById('corr-view-prev')?.addEventListener('click', () => {
+    corrViewMode = corrViewMode === 'dots' ? 'heat' : 'dots';
+    updateCorrView();
+  });
+  document.getElementById('corr-view-next')?.addEventListener('click', () => {
+    corrViewMode = corrViewMode === 'dots' ? 'heat' : 'dots';
+    updateCorrView();
+  });
+
+  // ---- Reading Pace Year Navigation ----
+  const paceLabel = document.getElementById('pace-year-label');
+  const paceContainer = document.getElementById('monthly-chart-container');
+  const pacePrevBtn = document.getElementById('pace-prev-btn');
+  const paceNextBtn = document.getElementById('pace-next-btn');
+
+  function updatePaceYear() {
+    if (paceLabel) paceLabel.textContent = _paceYear;
+    if (paceContainer) paceContainer.innerHTML = buildMonthlyChart(stats.dayMap, _paceYear);
+    if (pacePrevBtn) pacePrevBtn.disabled = _paceYear <= HEATMAP_START_YEAR;
+    if (paceNextBtn) paceNextBtn.disabled = _paceYear >= currentYear;
+  }
+
+  pacePrevBtn?.addEventListener('click', () => {
+    if (_paceYear > HEATMAP_START_YEAR) { _paceYear--; updatePaceYear(); }
+  });
+  paceNextBtn?.addEventListener('click', () => {
+    if (_paceYear < currentYear) { _paceYear++; updatePaceYear(); }
+  });
+
+  updatePaceYear();
+}
+
+// ============================================================
+// Correlation Graph
+// ============================================================
+function buildCorrelationGraph(scatterData, mode = 'dots') {
+  if (!scatterData || scatterData.length === 0) return `<div class="empty-state"><h3>${t('no_data')}</h3></div>`;
+  
+  const maxVisualChap = 200;
+  
+  // Y Axis (Ratings 1 to 10 with 0.5 increments visible)
+  const yTicksArray = [];
+  for (let v = 1; v <= 10; v += 0.5) {
+    const isHalf = (v % 1) !== 0;
+    let labelStr = v;
+    if (v === 10) labelStr = '10⭐';
+    if (v === 1) labelStr = '1🗑️';
+    const label = isHalf ? '' : `<span>${labelStr}</span>`;
+    const w = isHalf ? '4px' : '8px';
+    yTicksArray.push(`<div class="scatter-y-tick" style="bottom:${v*10}%; width:${w}">${label}</div>`);
+  }
+  const yAxisTicks = yTicksArray.join('');
+
+  // X Axis (0 to 200+, step 20)
+  const xTicksArray = [];
+  for (let v = 0; v <= maxVisualChap; v += 20) {
+    const pos = (v / maxVisualChap) * 100;
+    const label = (v === maxVisualChap) ? '200+' : v;
+    xTicksArray.push(`<div class="scatter-x-tick" style="left:${pos}%"><span>${label}</span></div>`);
+  }
+  const xAxisTicks = xTicksArray.join('');
+
+  // Group overlapping points (Proximity clustering ~5 chapters)
+  const dotsGroups = {};
+  scatterData.forEach(d => {
+    let rawX = d.chapters;
+    if (rawX > maxVisualChap) rawX = maxVisualChap;
+    
+    // Bucket chapters to cluster very close points
+    const bucketX = rawX >= maxVisualChap ? maxVisualChap : Math.round(rawX / 5) * 5;
+    
+    // Calculate percentages
+    const xPct = (bucketX / maxVisualChap) * 100;
+    const yPct = (d.rating / 10) * 100;
+    
+    // Group key based on approximate render coordinate
+    const key = `${xPct}_${yPct}`;
+    if (!dotsGroups[key]) dotsGroups[key] = { x: xPct, y: yPct, items: [] };
+    dotsGroups[key].items.push(d);
+  });
+
+  // Heat mode: render a <canvas> element and color-map
+  if (mode === 'heat') {
+    // We'll schedule the canvas drawing after DOM insertion via a microtask
+    const canvasId = 'heatmap-canvas-' + Date.now();
+    
+    // Store data in a global so the draw function can pick it up
+    window.__heatmapData = {
+      id: canvasId,
+      groups: Object.values(dotsGroups),
+    };
+
+    // Schedule draw after DOM insertion
+    setTimeout(() => _drawHeatmapCanvas(window.__heatmapData), 0);
+
+    return `
+      <div class="scatter-wrap heat-mode">
+        <div class="scatter-inner heat-canvas-container">
+          <canvas id="${canvasId}" class="heat-canvas-el"></canvas>
+        </div>
+        <div class="scatter-axes-overlay">
+          ${yAxisTicks}
+          ${xAxisTicks}
+        </div>
+      </div>
+    `;
+  }
+
+  // Dots mode
+  const dots = Object.values(dotsGroups).map(g => {
+    const count = g.items.length;
+
+    // Default mode styling
+    if (count === 1) {
+      const d = g.items[0];
+      const titleClean = d.title.replace(/"/g, '&quot;');
+      const chaptersText = d.chapters > maxVisualChap ? `${d.chapters} (200+)` : d.chapters;
+      const tooltip = `${titleClean}&#10;★ ${d.rating}&#10;📚 ${chaptersText} ${t('chapters')}&#10;📅 ${d.date || '—'}`;
+      return `<div class="scatter-dot" style="left:${g.x}%; bottom:${g.y}%" title="${tooltip}"></div>`;
+    } 
+    
+    // Cluster
+    const titles = g.items.map(d => `• ${d.title.replace(/"/g, '&quot;')} (${d.chapters})`).join('&#10;');
+    const ratingLabel = g.items[0].rating;
+    const tooltip = `★ ${ratingLabel} | Кластер (${g.items.length} ${t('mangas')}):&#10;${titles}`;
+    const size = Math.min(14 + (count * 2), 26);
+    
+    return `<div class="scatter-dot scatter-cluster" style="left:${g.x}%; bottom:${g.y}%; width:${size}px; height:${size}px" title="${tooltip}"><span class="cluster-txt">${g.items.length}</span></div>`;
+  }).join('');
+
+  return `
+    <div class="scatter-wrap">
+      <div class="scatter-inner">
+        ${yAxisTicks}
+        ${xAxisTicks}
+        ${dots}
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// Canvas Heatmap Renderer
+// ============================================================
+function _drawHeatmapCanvas(data) {
+  const canvas = document.getElementById(data.id);
+  if (!canvas) return;
+  
+  const container = canvas.parentElement;
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+  
+  // Internal padding so edge spots don't get clipped
+  const pad = 45;
+  const innerW = w - pad * 2;
+  const innerH = h - pad * 2;
+  
+  // Use higher resolution for retina displays
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  
+  // Step 1: Draw intensity layer (grayscale/alpha) onto a shadow canvas
+  const shadow = document.createElement('canvas');
+  shadow.width = w;
+  shadow.height = h;
+  const sCtx = shadow.getContext('2d');
+  
+  // Find the maximum count in any group for intensity normalization
+  const maxCount = Math.max(...data.groups.map(g => g.items.length), 1);
+  
+  // Draw radial gradients for each data point
+  data.groups.forEach(g => {
+    const count = g.items.length;
+    // Map percentage to padded inner area
+    const x = pad + (g.x / 100) * innerW;
+    const y = pad + (1 - g.y / 100) * innerH; // flip Y (bottom=0 in our data, top=0 in canvas)
+    
+    // Radius and alpha based on count — smaller radius for sharper, crisper spots
+    const radius = Math.min(18 + count * 8, 55);
+    const alpha = Math.min(0.2 + (count / maxCount) * 0.8, 1.0);
+    
+    const grad = sCtx.createRadialGradient(x, y, 0, x, y, radius);
+    grad.addColorStop(0, `rgba(0, 0, 0, ${alpha})`);
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    
+    sCtx.fillStyle = grad;
+    sCtx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+  });
+  
+  // Step 2: Build the color palette (256 entries: blue → cyan → green → yellow → red)
+  const palette = _buildHeatPalette();
+  
+  // Step 3: Read intensity pixels and remap to colors
+  const imgData = sCtx.getImageData(0, 0, w, h);
+  const pixels = imgData.data;
+  
+  for (let i = 0; i < pixels.length; i += 4) {
+    const alpha = pixels[i + 3]; // use alpha channel as intensity
+    if (alpha === 0) continue;
+    
+    const colorIdx = Math.min(alpha, 255);
+    pixels[i]     = palette[colorIdx * 4];     // R
+    pixels[i + 1] = palette[colorIdx * 4 + 1]; // G
+    pixels[i + 2] = palette[colorIdx * 4 + 2]; // B
+    pixels[i + 3] = palette[colorIdx * 4 + 3]; // A
+  }
+  
+  sCtx.putImageData(imgData, 0, 0);
+  
+  // Step 4: Draw the colored result onto the main canvas
+  // White background for clean look
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, w, h);
+  
+  ctx.drawImage(shadow, 0, 0, w, h);
+}
+
+function _buildHeatPalette() {
+  // Create a 256-stop linear gradient: transparent → blue → cyan → green → yellow → red
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 1;
+  const ctx = c.getContext('2d');
+  
+  const grad = ctx.createLinearGradient(0, 0, 256, 0);
+  grad.addColorStop(0.0,  'rgba(0,   0, 255, 0)');       // transparent
+  grad.addColorStop(0.05, 'rgba(0,   0, 255, 0.3)');     // blue faint
+  grad.addColorStop(0.15, 'rgba(0,   0, 255, 0.7)');     // blue
+  grad.addColorStop(0.30, 'rgba(0, 180, 255, 0.85)');    // cyan
+  grad.addColorStop(0.45, 'rgba(0, 210, 100, 0.9)');     // green
+  grad.addColorStop(0.60, 'rgba(160, 230, 50, 0.92)');   // lime-green
+  grad.addColorStop(0.75, 'rgba(255, 230, 0, 0.95)');    // yellow
+  grad.addColorStop(0.88, 'rgba(255, 150, 0, 0.97)');    // orange
+  grad.addColorStop(1.0,  'rgba(255,  30, 0, 1.0)');     // red
+  
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 256, 1);
+  
+  return ctx.getImageData(0, 0, 256, 1).data;
 }
