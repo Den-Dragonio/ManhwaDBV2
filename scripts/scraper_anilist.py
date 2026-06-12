@@ -197,6 +197,8 @@ def fetch_anilist(anilist_id):
             if 'bdsm' in lower_t: mapped_tags.append('бдсм')
             
         final_genres = list(set(raw_genres + mapped_tags))
+        country = media.get('countryOfOrigin')
+        m_type = 'manga' if country == 'JP' else 'manhwa'
 
         result = {
             'anilist_id': media['id'],
@@ -216,7 +218,8 @@ def fetch_anilist(anilist_id):
             'artist': artist,
             'is_adult': media.get('isAdult', False),
             'format': media.get('format'),
-            'country': media.get('countryOfOrigin'),
+            'country': country,
+            'type': m_type,
             'search_names': list(set(filter(None, [
                 (title.get('english') or '').lower(),
                 (title.get('romaji') or '').lower(),

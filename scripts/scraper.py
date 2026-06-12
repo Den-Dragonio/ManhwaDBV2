@@ -478,6 +478,7 @@ def scrape_toongod(url):
 
         data['url'] = url
         data['source'] = source_type
+        data['type'] = 'manhwa'
         data['last_updated'] = firestore.SERVER_TIMESTAMP
 
         votes_str = data.get('vote_count', 'N/A')

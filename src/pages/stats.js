@@ -14,7 +14,8 @@ export async function renderStats() {
   const container = document.getElementById('page-root');
   showLoader(container);
 
-  const reviews = await Reviews.byUser(user.id);
+  const allReviews = await Reviews.byUser(user.id);
+  const reviews = allReviews.filter(r => r.type === 'manhwa');
 
   // Load manga_metadata for all unique titleIds (for author/artist data)
   const uniqueTitleIds = [...new Set(reviews.map(r => r.titleId).filter(Boolean))];

@@ -34,6 +34,33 @@ function normalizeDocs(snap) {
   return snap.docs.map(d => normalize(d));
 }
 
+function normalizeReview(snap) {
+  const norm = normalize(snap);
+  if (!norm) return null;
+  let mType = norm.type;
+  if (!mType) {
+    const lowerTags = (norm.tags || []).map(t => t.trim().toLowerCase());
+    if (lowerTags.includes('манга') || lowerTags.includes('manga')) {
+      mType = 'manga';
+    } else {
+      mType = 'manhwa';
+    }
+  }
+  const cleanTags = (norm.tags || []).filter(t => {
+    const q = t.trim().toLowerCase();
+    return q !== 'манхва' && q !== 'манга' && q !== 'manhwa' && q !== 'мaнhwa' && q !== 'манhwa';
+  });
+  return {
+    ...norm,
+    type: mType,
+    tags: cleanTags
+  };
+}
+
+function normalizeReviewDocs(snap) {
+  return snap.docs.map(d => normalizeReview(d));
+}
+
 // Cached current user profile (set by main.js via onAuthStateChanged)
 let _currentUserProfile = null;
 
@@ -94,7 +121,7 @@ export const Users = {
 export const Reviews = {
   all: async () => {
     const snap = await getDocs(collection(db, 'reviews'));
-    return normalizeDocs(snap).sort((a, b) => {
+    return normalizeReviewDocs(snap).sort((a, b) => {
       const da = new Date(a.date || a.createdAt);
       const dbDate = new Date(b.date || b.createdAt);
       const diff = dbDate - da;
@@ -103,12 +130,12 @@ export const Reviews = {
   },
   byId: async (id) => {
     const snap = await getDoc(doc(db, 'reviews', id));
-    return normalize(snap);
+    return normalizeReview(snap);
   },
   byUser: async (userId) => {
     const q = query(collection(db, 'reviews'), where('userId', '==', userId));
     const snap = await getDocs(q);
-    return normalizeDocs(snap).sort((a, b) => {
+    return normalizeReviewDocs(snap).sort((a, b) => {
       const da = new Date(a.date || a.createdAt);
       const dbDate = new Date(b.date || b.createdAt);
       const diff = dbDate - da;
@@ -118,7 +145,7 @@ export const Reviews = {
   topRated: async (n = 10) => {
     // Fetch recent reviews to aggregate
     const snap = await getDocs(query(collection(db, 'reviews'), orderBy('createdAt', 'desc'), limit(500)));
-    const all = normalizeDocs(snap);
+    const all = normalizeReviewDocs(snap);
     
     // Group by titleId
     const groups = {};
@@ -141,7 +168,7 @@ export const Reviews = {
   byTitle: async (titleId) => {
     const q = query(collection(db, 'reviews'), where('titleId', '==', titleId));
     const snap = await getDocs(q);
-    return normalizeDocs(snap).sort((a, b) => {
+    return normalizeReviewDocs(snap).sort((a, b) => {
       const da = new Date(a.date || a.createdAt);
       const dbDate = new Date(b.date || b.createdAt);
       const diff = dbDate - da;
@@ -170,6 +197,7 @@ export const Reviews = {
       chapters: data.chapters || 0,
       status: data.status || 'done',
       tags: data.tags || [],
+      type: data.type || 'manhwa',
       date: data.date || '',
       likes: [],
       dislikes: [],

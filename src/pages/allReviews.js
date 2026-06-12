@@ -277,7 +277,7 @@ function renderGrid(reviews) {
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
           <div class="review-date">${r.date ? formatDate(r.date) : timeAgo(r.createdAt)}</div>
           <span class="status-badge ${statusClass[r.status] || ''}" style="font-size:0.7rem">${statusLabels[r.status] || ''}</span>
-          <span style="color:var(--text-muted);font-size:0.75rem">📚 ${r.chapters || 0} глав</span>
+          <span style="color:var(--text-muted);font-size:0.75rem">📚 ${r.chapters || 0} ${r.type === 'manga' ? 'стор.' : 'глав'}</span>
         </div>
         <div style="margin:6px 0">${r.status === 'planned' ? '<span style="color:var(--text-muted);font-size:0.8rem">Ще не оцінено</span>' : starsHtml(r.rating, r.status === 'dropped')}</div>
         ${r.tags?.length ? `<div class="review-tags">${r.tags.map(t => `<span class="tag">${escapeHtml(formatTag(t))}</span>`).join('')}</div>` : ''}

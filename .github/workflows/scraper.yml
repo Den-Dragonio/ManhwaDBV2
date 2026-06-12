@@ -43,3 +43,6 @@ jobs:
 
       - name: Запуск ToonGod Scraper (Нові тайтли)
         run: python -u scripts/scraper.py
+
+      - name: Запуск Hitomi Scraper (Нові тайтли)
+        run: python -u scripts/scraper_hitomi.py

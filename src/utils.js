@@ -250,3 +250,161 @@ export function initTheme() {
   const saved = localStorage.getItem('theme') || 'system';
   applyTheme(saved);
 }
+
+export async function fetchViaProxy(url) {
+  const proxies = [
+    target => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(target)}`,
+    target => `https://corsproxy.io/?${encodeURIComponent(target)}`,
+    target => `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`
+  ];
+
+  let lastError;
+  for (const getProxyUrl of proxies) {
+    try {
+      const proxyUrl = getProxyUrl(url);
+      const res = await fetch(proxyUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res;
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  throw lastError || new Error("All proxies failed");
+}
+
+export async function urlToBase64ViaProxy(url) {
+  try {
+    const res = await fetchViaProxy(url);
+    const blob = await res.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    console.warn("Failed to convert image to base64 via proxy:", e);
+    return "";
+  }
+}
+
+export async function fetchMetadataFromUrl(url) {
+  const hitomiMatch = url.match(/hitomi\.la\/(?:[^\/]+\/)?(?:.*-)?(\d+)\.html/i) || url.match(/hitomi\.la\/reader\/(\d+)\.html/i);
+  const hchanMatch = url.match(/h(?:entai)?-chan\.[^\/]+\/(?:manga|online)\/(\d+)-([^\.]+)\.html/i);
+
+  if (hitomiMatch) {
+    const galleryId = hitomiMatch[1];
+    const jsUrl = `https://ltn.hitomi.la/galleries/${galleryId}.js`;
+    const res = await fetchViaProxy(jsUrl);
+    const text = await res.text();
+    const startIdx = text.indexOf('{');
+    const endIdx = text.lastIndexOf('}');
+    if (startIdx === -1 || endIdx === -1) throw new Error("Невірний формат Hitomi JS");
+    const jsonStr = text.substring(startIdx, endIdx + 1);
+    const info = JSON.parse(jsonStr);
+
+    const title = info.title || 'Unknown';
+    const artists = info.artists ? info.artists.map(a => a.artist).join(', ') : '';
+    const pages = info.files ? info.files.length : 0;
+
+    const rawTags = (info.tags || []).map(t => {
+      let name = t.tag || '';
+      if (name.includes(':')) {
+        name = name.split(':')[1];
+      }
+      return name;
+    });
+
+    const mappedTags = [];
+    rawTags.forEach(t => {
+      const lt = t.toLowerCase();
+      if (lt.includes('x-ray')) mappedTags.push('рентген');
+      if (lt.includes('ahegao')) mappedTags.push('ахегао');
+      if (lt.includes('smut')) mappedTags.push('🔥🔞сцены');
+      if (lt.includes('ntr') || lt.includes('netorare')) mappedTags.push('NTR');
+      if (lt.includes('animated')) mappedTags.push('animated');
+      if (lt.includes('foot fetish')) mappedTags.push('футфетиш');
+      if (lt.includes('bdsm')) mappedTags.push('бдсм');
+    });
+
+    const tags = [...new Set([...rawTags, ...mappedTags])].filter(t => {
+      const lt = t.toLowerCase();
+      return lt && lt !== 'manga' && lt !== 'manhwa' && lt !== 'манга' && lt !== 'манхва';
+    });
+
+    const coverUrl = `https://tn.hitomi.la/bigcovers/${galleryId}.jpg`;
+    const coverBase64 = await urlToBase64ViaProxy(coverUrl);
+
+    return {
+      title,
+      author: artists || 'Unknown',
+      chapters: pages,
+      tags,
+      coverBase64,
+      type: 'manga',
+      titleId: `hitomi_${galleryId}`
+    };
+  }
+
+  if (hchanMatch) {
+    const galleryId = hchanMatch[1];
+    const targetUrl = url.replace('/online/', '/manga/');
+    const res = await fetchViaProxy(targetUrl);
+    const html = await res.text();
+
+    const titleMatch = html.match(/class=["']title_top_a["'][^>]*>(.*?)<\/a>/i) || html.match(/<h1[^>]*>(.*?)<\/h1>/i);
+    const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, '').trim() : 'Unknown';
+
+    const coverMatch = html.match(/<img[^>]+id=["']cover["'][^>]+src=["']([^"']+)["']/i);
+    let coverUrl = coverMatch ? coverMatch[1] : '';
+    if (coverUrl && coverUrl.startsWith('/')) {
+      coverUrl = 'https://hentai-chan.pro' + coverUrl;
+    }
+    const coverBase64 = coverUrl ? await urlToBase64ViaProxy(coverUrl) : '';
+
+    const pagesMatch = html.match(/страниц:\s*<b>(\d+)<\/b>/i) || html.match(/<b>(\d+)<\/b>\s*страниц/i);
+    const pages = pagesMatch ? parseInt(pagesMatch[1], 10) : 0;
+
+    const tags = [];
+    const tagRegex = /href=['"]\/tags\/[^'"]+['"]>([^<]+)<\/a>/gi;
+    let match;
+    while ((match = tagRegex.exec(html)) !== null) {
+      const tagText = match[1].trim();
+      if (tagText && !tags.includes(tagText)) {
+        tags.push(tagText);
+      }
+    }
+
+    const tagMapping = {
+      'без цензуры': 'без цензуры',
+      'рентген': 'рентген',
+      'ахегао': 'ахегао',
+      'бдсм': 'бдсм',
+      'романтика': 'Романтика',
+      'комедия': 'Комедія',
+      'драма': 'Драма',
+      'гарем': 'Гарем',
+      'групповой': 'Тройничок',
+      'футфетиш': 'футфетиш',
+      'сэцухира': '🔥🔞сцены',
+      'сцены': '🔥🔞сцены'
+    };
+
+    const normalizedTags = tags.map(t => tagMapping[t.toLowerCase()] || t).filter(t => {
+      const lt = t.toLowerCase();
+      return lt && lt !== 'manga' && lt !== 'manhwa' && lt !== 'манга' && lt !== 'манхва';
+    });
+
+    return {
+      title,
+      author: 'Unknown',
+      chapters: pages,
+      tags: normalizedTags,
+      coverBase64,
+      type: 'manga',
+      titleId: `hchan_${galleryId}`
+    };
+  }
+
+  throw new Error("Невідомий формат посилання. Підтримуються тільки Hitomi.la та Hentai-Chan.");
+}

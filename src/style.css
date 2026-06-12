@@ -245,6 +245,61 @@ body::before {
   }
 }
 
+/* Type Selector Styles */
+.type-selector-wrap {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  width: 100%;
+}
+
+.type-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 10px 16px;
+  background: var(--bg-surface);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+  user-select: none;
+  flex: 1;
+}
+
+.type-option:hover {
+  background: var(--bg-hover);
+  border-color: transparent;
+}
+
+.type-glow-indicator {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--text-muted);
+  display: inline-block;
+  transition: all 0.2s;
+  position: relative;
+  background: transparent;
+}
+
+.type-option input[type="radio"]:checked + .type-glow-indicator {
+  border-color: var(--accent) !important;
+  background: var(--accent) !important;
+  box-shadow: 0 0 10px rgba(230, 57, 70, 0.8), 0 0 20px rgba(230, 57, 70, 0.4);
+}
+
+.type-option input[type="radio"]:checked ~ span:not(.type-glow-indicator) {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.type-option:has(input[type="radio"]:checked) {
+  border-color: transparent;
+  background: rgba(230, 57, 70, 0.1);
+}
+
 .btn-active-green {
   background: #34c759 !important;
   color: #fff !important;
@@ -741,7 +796,7 @@ input[type="range"].star-slider::-webkit-slider-thumb {
   .home-layout { grid-template-columns: 1fr; }
   .two-col { grid-template-columns: 1fr; }
   .top4-grid { grid-template-columns: repeat(4, 1fr); }
-  .site-header { padding: 0 16px; }
+  .site-header { padding: env(safe-area-inset-top, 0px) 16px 0; }
   .page-container { padding: 20px 16px; }
   .hero-search { padding: 20px 16px; }
   .hero-search h1 { font-size: 1.5rem; }
@@ -755,7 +810,7 @@ input[type="range"].star-slider::-webkit-slider-thumb {
   .modal-box { border-radius: var(--radius-lg); width: 95%; max-width: 400px; }
   .review-full-layout { flex-direction: column; }
   .review-full-cover { width: 140px; margin: 0 auto; }
-  .site-header { padding: 0 16px; height: 56px; }
+  .site-header { padding: env(safe-area-inset-top, 0px) 16px 0; height: calc(56px + env(safe-area-inset-top, 0px)); }
   .header-logo { font-size: 1.1rem; }
   .header-nav { display: none; }
   .header-auth span { display: none; }

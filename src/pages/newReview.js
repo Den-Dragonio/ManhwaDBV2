@@ -3,7 +3,7 @@
 // ============================================================
 
 import { Reviews, Session, News } from '../store.js';
-import { starsHtml, compressImage, showToast, escapeHtml, showLoader, searchHChan } from '../utils.js';
+import { starsHtml, compressImage, showToast, escapeHtml, showLoader, searchHChan, fetchMetadataFromUrl } from '../utils.js';
 import { navigate } from '../router.js';
 
 export async function renderNewReview(editId = null, preSelectedTitleId = null) {
@@ -26,6 +26,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
   let selectedTitleId = existing?.titleId || preSelectedTitleId || null;
   let selectedSearchNames = existing?.search_names || [];
   let selectedMdexId = existing?.mangadex_id || null;
+  let currentType = existing?.type || 'manhwa';
 
   container.innerHTML = `
     <div class="page-container" style="max-width:720px">
@@ -58,9 +59,9 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
           <div class="review-editor-right">
             <!-- Title -->
             <div class="form-group">
-              <label class="form-label">Назва манхви <span style="color:var(--accent)">*</span></label>
+              <label class="form-label">Назва або посилання на тайтл <span style="color:var(--accent)">*</span></label>
               <div style="position:relative">
-                <input class="input" type="text" id="review-title" placeholder="Введіть назву..." value="${escapeHtml(existing?.title || '')}" autocomplete="off">
+                <input class="input" type="text" id="review-title" placeholder="Введіть назву або посилання на тайтл..." value="${escapeHtml(existing?.title || '')}" autocomplete="off">
                 <div id="autocomplete-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-float);z-index:100;max-height:300px;overflow-y:auto;margin-top:4px"></div>
               </div>
             </div>
@@ -68,7 +69,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
               <!-- Chapters -->
               <div class="form-group">
-                <label class="form-label">Кількість глав <span style="color:var(--accent)">*</span></label>
+                <label class="form-label" id="chapters-label">Кількість глав <span style="color:var(--accent)">*</span></label>
                 <input class="input" type="number" id="review-chapters" placeholder="0" min="0" value="${currentChapters}">
               </div>
               <!-- Date -->
@@ -93,6 +94,23 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
 
         <div class="divider" style="margin:24px 0"></div>
 
+        <!-- Type Selector (Manga vs Manhwa) -->
+        <div class="form-group" style="margin-bottom:20px">
+          <label class="form-label">Вид твору <span style="color:var(--accent)">*</span></label>
+          <div class="type-selector-wrap">
+            <label class="type-option">
+              <input type="radio" name="manga-type" value="manhwa" style="display:none" ${currentType === 'manhwa' ? 'checked' : ''}>
+              <span class="type-glow-indicator"></span>
+              <span>Манхва</span>
+            </label>
+            <label class="type-option">
+              <input type="radio" name="manga-type" value="manga" style="display:none" ${currentType === 'manga' ? 'checked' : ''}>
+              <span class="type-glow-indicator"></span>
+              <span>Манга</span>
+            </label>
+          </div>
+        </div>
+
         <!-- Tags -->
         <div class="form-group" style="margin-bottom:20px">
           <label class="form-label">Теги (через кому)</label>
@@ -100,8 +118,6 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
           <div class="preset-tags-wrap" id="preset-tags-wrap" style="margin-top:10px">
             <!-- Preset tags... -->
             <button type="button" class="preset-tag preset-tag-fapped" data-tag="fapped">fapped 🍆💦</button>
-            <button type="button" class="preset-tag" data-tag="Манhwa">Манхва</button>
-            <button type="button" class="preset-tag" data-tag="Манга">Манга</button>
             <button type="button" class="preset-tag preset-tag-fire" style="background:rgba(255,105,180,0.1);color:#ff69b4;border-color:rgba(255,105,180,0.3)" data-tag="Романтика">Романтика 😍</button>
             <button type="button" class="preset-tag preset-tag-fire" style="background:rgba(100,149,237,0.1);color:#6495ed;border-color:rgba(100,149,237,0.3)" data-tag="Драма">Драма 🎭</button>
             <button type="button" class="preset-tag preset-tag-fire" style="background:rgba(255,165,0,0.1);color:#ffa500;border-color:rgba(255,165,0,0.3)" data-tag="Комедія">Комедія 😂</button>
@@ -229,6 +245,50 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
     const q = titleInput.value.trim();
     if (q.length < 2) { resultsBox.style.display = 'none'; return; }
 
+    if (q.startsWith('http://') || q.startsWith('https://')) {
+      resultsBox.style.display = 'none';
+      if (titleInput.dataset.loading === 'true') return;
+      titleInput.dataset.loading = 'true';
+      showToast('Завантаження метаданих за посиланням...', 'info');
+      const originalPlaceholder = titleInput.placeholder;
+      titleInput.placeholder = 'Завантаження даних...';
+      titleInput.disabled = true;
+
+      fetchMetadataFromUrl(q).then(meta => {
+        titleInput.value = meta.title;
+        selectedTitleId = meta.titleId;
+        if (meta.chapters) {
+          document.getElementById('review-chapters').value = meta.chapters;
+        }
+        if (meta.tags && meta.tags.length > 0) {
+          document.getElementById('review-tags').value = meta.tags.join(', ');
+          document.getElementById('review-tags').dispatchEvent(new Event('input'));
+        }
+        if (meta.coverBase64) {
+          currentCover = meta.coverBase64;
+          refreshCoverUI();
+        }
+        if (meta.type) {
+          currentType = meta.type;
+          const radios = document.getElementsByName('manga-type');
+          radios.forEach(r => {
+            r.checked = (r.value === currentType);
+          });
+          updateChaptersLabel();
+        }
+        showToast('Дані успішно імпортовано! ✅', 'success');
+      }).catch(err => {
+        console.error(err);
+        showToast('Не вдалося завантажити дані. Введіть назву вручну ❌', 'warning');
+      }).finally(() => {
+        titleInput.placeholder = originalPlaceholder;
+        titleInput.disabled = false;
+        titleInput.dataset.loading = 'false';
+        titleInput.focus();
+      });
+      return;
+    }
+
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(async () => {
       try {
@@ -262,7 +322,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              query: `query ($search: String) { Page(page: 1, perPage: 8) { media(search: $search, type: MANGA) { id title { romaji english native } synonyms coverImage { extraLarge } chapters } } }`,
+              query: `query ($search: String) { Page(page: 1, perPage: 8) { media(search: $search, type: MANGA) { id title { romaji english native } synonyms coverImage { extraLarge } chapters countryOfOrigin } } }`,
               variables: { search: q }
             })
           }).then(r => r.json()).catch(() => ({ data: { Page: { media: [] } } })),
@@ -283,7 +343,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
              
              finalHtmlItems.push(`
                <div class="ac-item" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);background:var(--bg-card);border-left:4px solid var(--accent)" 
-                    data-title="${escapeHtml(ur.title)}" data-cover="${cover}" data-chapters="${ur.chapters || 0}" data-tid="${ur.titleId}" data-editid="${ur.id}" data-search-names="${escapeHtml(JSON.stringify(ur.search_names || []))}">
+                    data-title="${escapeHtml(ur.title)}" data-cover="${cover}" data-chapters="${ur.chapters || 0}" data-tid="${ur.titleId}" data-editid="${ur.id}" data-search-names="${escapeHtml(JSON.stringify(ur.search_names || []))}" data-type="${ur.type || 'manhwa'}">
                  ${cover ? `<img src="${cover}" style="width:32px;height:45px;object-fit:cover;border-radius:4px">` : `<div style="width:32px;height:45px;background:var(--bg-hover);border-radius:4px"></div>`}
                  <div style="flex:1">
                    <div style="font-weight:600;font-size:0.9rem;color:var(--accent)">${escapeHtml(ur.title)}</div>
@@ -304,7 +364,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
           const chapters = m.anilist?.chapters || m.toongod?.chapters || m.chapters || 0;
           finalHtmlItems.push(`
             <div class="ac-item db-match" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);background:rgba(var(--accent-rgb), 0.05)" 
-                 data-title="${escapeHtml(title)}" data-cover="${cover}" data-chapters="${chapters}" data-tid="${m.id}" data-search-names="${escapeHtml(JSON.stringify(m.search_names || []))}">
+                 data-title="${escapeHtml(title)}" data-cover="${cover}" data-chapters="${chapters}" data-tid="${m.id}" data-search-names="${escapeHtml(JSON.stringify(m.search_names || []))}" data-type="${m.type || 'manhwa'}">
               ${cover ? `<img src="${cover}" style="width:32px;height:45px;object-fit:cover;border-radius:4px">` : `<div style="width:32px;height:45px;background:var(--bg-hover);border-radius:4px"></div>`}
               <div style="flex:1">
                 <div style="font-weight:600;font-size:0.9rem">${escapeHtml(title)}</div>
@@ -324,10 +384,11 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
           const cover = m.coverImage?.extraLarge || '';
           const tid = `ani_${m.id}`;
           const aliases = listToLowUnique([m.title.english, m.title.romaji, m.title.native, ...(m.synonyms || [])]);
+          const itemType = m.countryOfOrigin === 'KR' ? 'manhwa' : 'manga';
 
           finalHtmlItems.push(`
             <div class="ac-item" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);transition:0.1s" 
-                 data-title="${escapeHtml(t)}" data-cover="${cover}" data-chapters="${m.chapters || 0}" data-tid="${tid}" data-search-names="${escapeHtml(JSON.stringify(aliases))}">
+                 data-title="${escapeHtml(t)}" data-cover="${cover}" data-chapters="${m.chapters || 0}" data-tid="${tid}" data-search-names="${escapeHtml(JSON.stringify(aliases))}" data-type="${itemType}">
               ${cover ? `<img src="${cover}" style="width:32px;height:45px;object-fit:cover;border-radius:4px">` : `<div style="width:32px;height:45px;background:var(--bg-hover);border-radius:4px"></div>`}
               <div style="flex:1">
                 <div style="font-weight:500;font-size:0.9rem">${escapeHtml(t)}</div>
@@ -364,10 +425,11 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
                  ...Object.values(m.attributes.title || {}),
                  ...(m.attributes.altTitles || []).flatMap(obj => Object.values(obj))
                ]);
+               const itemType = m.attributes.originalLanguage === 'ko' ? 'manhwa' : 'manga';
 
                finalHtmlItems.push(`
                  <div class="ac-item" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);transition:0.1s" 
-                      data-title="${escapeHtml(t)}" data-cover="${coverUrl}" data-chapters="${chapters}" data-tid="${tid}" data-mdex-id="${mdexId}" data-search-names="${escapeHtml(JSON.stringify(aliases))}">
+                      data-title="${escapeHtml(t)}" data-cover="${coverUrl}" data-chapters="${chapters}" data-tid="${tid}" data-mdex-id="${mdexId}" data-search-names="${escapeHtml(JSON.stringify(aliases))}" data-type="${itemType}">
                    ${coverUrl ? `<img src="${coverUrl}" style="width:32px;height:45px;object-fit:cover;border-radius:4px">` : `<div style="width:32px;height:45px;background:var(--bg-hover);border-radius:4px"></div>`}
                    <div style="flex:1">
                      <div style="font-weight:500;font-size:0.9rem">${escapeHtml(t)} ${isAdult ? '🔞' : ''}</div>
@@ -387,7 +449,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
           const tid = `hchan_${btoa(m.url).substring(0, 16)}`;
           finalHtmlItems.push(`
             <div class="ac-item" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);transition:0.1s" 
-                 data-title="${escapeHtml(m.title)}" data-url="${m.url}" data-tid="${tid}">
+                 data-title="${escapeHtml(m.title)}" data-url="${m.url}" data-tid="${tid}" data-type="manga">
               <div style="width:32px;height:45px;background:var(--accent-soft);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px">🔞</div>
               <div style="flex:1">
                 <div style="font-weight:500;font-size:0.9rem">${escapeHtml(m.title)}</div>
@@ -432,6 +494,13 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
             if (item.dataset.cover) {
               currentCover = item.dataset.cover;
               refreshCoverUI();
+            }
+            if (item.dataset.type) {
+              currentType = item.dataset.type;
+              const radios = document.getElementsByName('manga-type');
+              radios.forEach(r => {
+                r.checked = (r.value === currentType);
+              });
             }
             showToast('Дані завантажено!', 'info');
             resultsBox.style.display = 'none';
@@ -567,6 +636,24 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
 
   renderInteractiveStars();
 
+  const typeRadios = document.getElementsByName('manga-type');
+  const chaptersLabel = document.getElementById('chapters-label');
+  const chaptersInput = document.getElementById('review-chapters');
+
+  function updateChaptersLabel() {
+    const selected = document.querySelector('input[name="manga-type"]:checked')?.value || 'manhwa';
+    if (selected === 'manga') {
+      chaptersLabel.innerHTML = `Кількість сторінок <span style="color:var(--accent)">*</span>`;
+      chaptersInput.placeholder = "0";
+    } else {
+      chaptersLabel.innerHTML = `Кількість глав <span style="color:var(--accent)">*</span>`;
+      chaptersInput.placeholder = "0";
+    }
+  }
+
+  typeRadios.forEach(r => r.addEventListener('change', updateChaptersLabel));
+  updateChaptersLabel();
+
   // Preset tags (bubbles) under the tags input
   const reviewTagsInput = document.getElementById('review-tags');
   const presetTagsWrap = document.getElementById('preset-tags-wrap');
@@ -616,11 +703,19 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
     const text = document.getElementById('review-text').value.trim();
     const status = statusSel.value;
     const rating = (status === 'dropped' || status === 'planned') ? 0 : currentRating;
+    
+    const typeEl = document.querySelector('input[name="manga-type"]:checked');
+    const errEl = document.getElementById('review-form-error');
+    if (!typeEl) { errEl.textContent = "Виберіть вид твору (манга/манхва)"; errEl.style.display = 'block'; return; }
+    const type = typeEl.value;
+
     const tags = tagsRaw.split(',').map(t => {
       const tr = t.trim();
       return tr.toLowerCase() === 'nrt' ? 'NTR' : tr;
-    }).filter(Boolean);
-    const errEl = document.getElementById('review-form-error');
+    }).filter(t => {
+      const q = t.toLowerCase();
+      return q && q !== 'манхва' && q !== 'манга' && q !== 'manhwa' && q !== 'мaнhwa' && q !== 'манhwa' && q !== 'manga';
+    });
 
     if (!title) { errEl.textContent = "Назва обов'язкова"; errEl.style.display = 'block'; return; }
     if (!chaptersStr || isNaN(chapters) || chapters <= 0) { errEl.textContent = "Кількість глав обов'язкова (більше 0)"; errEl.style.display = 'block'; return; }
@@ -655,7 +750,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
       }
     }
 
-    const data = { title, titleId, mangadex_id: selectedMdexId, search_names: selectedSearchNames, coverBase64: currentCover, text, rating, chapters, status, tags, date };
+    const data = { title, titleId, mangadex_id: selectedMdexId, search_names: selectedSearchNames, coverBase64: currentCover, text, rating, chapters, status, tags, type, date };
 
     try {
       let review;

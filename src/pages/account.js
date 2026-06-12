@@ -260,7 +260,7 @@ function showPlaylistViewModal(playlist, reviews, userId, isOwn) {
                   </div>
                   <div class="review-body">
                     <div class="review-title">${escapeHtml(r.title)}</div>
-                    <div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px">📚 ${r.chapters || 0} глав | Оцінка: ${r.status === 'planned' ? '-' : (r.status === 'dropped' ? 'Кинуто' : r.rating)}</div>
+                    <div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px">📚 ${r.chapters || 0} ${r.type === 'manga' ? 'стор.' : 'глав'} | Оцінка: ${r.status === 'planned' ? '-' : (r.status === 'dropped' ? 'Кинуто' : r.rating)}</div>
                   </div>
                 </div>
               `).join('')}
