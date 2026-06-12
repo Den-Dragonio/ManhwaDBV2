@@ -95,6 +95,7 @@ export function starsHtml(rating, isDropped = false) {
 export function formatTag(tag) {
   if (!tag) return '';
   let t = tag.trim();
+  if (t.toLowerCase() === 'nrt') return 'NTR';
   if (t === 'fapped') return 'fapped 🍆💦';
   if (t.endsWith('+')) {
     const posEmojis = ['😍', '❤️', '🌟', '✨', '💎', '🔥'];

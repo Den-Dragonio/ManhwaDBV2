@@ -96,7 +96,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
         <!-- Tags -->
         <div class="form-group" style="margin-bottom:20px">
           <label class="form-label">Теги (через кому)</label>
-          <input class="input" type="text" id="review-tags" placeholder="екшн, романтика, фентезі..." value="${existing?.tags?.join(', ') || ''}">
+          <input class="input" type="text" id="review-tags" placeholder="екшн, романтика, фентезі..." value="${existing?.tags?.map(t => t.toLowerCase() === 'nrt' ? 'NTR' : t).join(', ') || ''}">
           <div class="preset-tags-wrap" id="preset-tags-wrap" style="margin-top:10px">
             <!-- Preset tags... -->
             <button type="button" class="preset-tag preset-tag-fapped" data-tag="fapped">fapped 🍆💦</button>
@@ -113,7 +113,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
             <button type="button" class="preset-tag" data-tag="рентген">Рентген 🩻</button>
             <button type="button" class="preset-tag" data-tag="ахегао">Ахегао 🤤</button>
             <button type="button" class="preset-tag" data-tag="🔥🔞сцены">🔥🔞 Сцени</button>
-            <button type="button" class="preset-tag" data-tag="nrt">NTR 💔</button>
+            <button type="button" class="preset-tag" data-tag="NTR">NTR 💔</button>
             <button type="button" class="preset-tag" data-tag="animated">Animated 🎬</button>
             <button type="button" class="preset-tag" data-tag="футфетиш">Футфетиш 👣</button>
             <button type="button" class="preset-tag" data-tag="бдсм">БДСМ ⛓️</button>
@@ -616,7 +616,10 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
     const text = document.getElementById('review-text').value.trim();
     const status = statusSel.value;
     const rating = (status === 'dropped' || status === 'planned') ? 0 : currentRating;
-    const tags = tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
+    const tags = tagsRaw.split(',').map(t => {
+      const tr = t.trim();
+      return tr.toLowerCase() === 'nrt' ? 'NTR' : tr;
+    }).filter(Boolean);
     const errEl = document.getElementById('review-form-error');
 
     if (!title) { errEl.textContent = "Назва обов'язкова"; errEl.style.display = 'block'; return; }

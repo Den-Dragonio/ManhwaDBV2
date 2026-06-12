@@ -220,6 +220,31 @@ body::before {
 .btn-sm { padding: 6px 14px; font-size: 0.85rem; }
 .btn-xs { padding: 4px 10px; font-size: 0.75rem; border-radius: 6px; }
 
+/* Prevent back buttons from shifting position/jumping on hover or active click */
+#back-btn:hover,
+#stats-back-btn:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+#back-btn:active,
+#stats-back-btn:active {
+  transform: none !important;
+}
+
+/* For stats page header specifically, preserve its vertical absolute centering */
+#stats-back-btn.stats-back-abs:hover,
+#stats-back-btn.stats-back-abs:active {
+  transform: translateY(-50%) !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 768px) {
+  #stats-back-btn.stats-back-abs:hover,
+  #stats-back-btn.stats-back-abs:active {
+    transform: none !important;
+  }
+}
+
 .btn-active-green {
   background: #34c759 !important;
   color: #fff !important;

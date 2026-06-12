@@ -191,7 +191,7 @@ def fetch_anilist(anilist_id):
             if 'x-ray' in lower_t: mapped_tags.append('рентген')
             if 'ahegao' in lower_t: mapped_tags.append('ахегао')
             if 'smut' in lower_t: mapped_tags.append('🔥🔞сцены')
-            if 'ntr' in lower_t or 'netorare' in lower_t: mapped_tags.append('nrt')
+            if 'ntr' in lower_t or 'netorare' in lower_t: mapped_tags.append('NTR')
             if 'animated' in lower_t: mapped_tags.append('animated')
             if 'foot fetish' in lower_t: mapped_tags.append('футфетиш')
             if 'bdsm' in lower_t: mapped_tags.append('бдсм')
