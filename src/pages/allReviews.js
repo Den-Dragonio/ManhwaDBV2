@@ -90,7 +90,24 @@ export async function renderAllReviews({ userId }) {
     });
   });
 
-  const tagEntries = Object.values(tagCounts).sort((a, b) => b.count - a.count);
+  const tagEntries = Object.values(tagCounts).sort((a, b) => {
+    const nameA = a.name.toLowerCase();
+    const nameB = b.name.toLowerCase();
+    const isManhwaA = nameA === 'манхва' || nameA === 'manhwa';
+    const isManhwaB = nameB === 'манхва' || nameB === 'manhwa';
+    const isMangaA = nameA === 'манга' || nameA === 'manga';
+    const isMangaB = nameB === 'манга' || nameB === 'manga';
+
+    if (isManhwaA && isManhwaB) return 0;
+    if (isManhwaA) return -1;
+    if (isManhwaB) return 1;
+
+    if (isMangaA && isMangaB) return 0;
+    if (isMangaA) return -1;
+    if (isMangaB) return 1;
+
+    return b.count - a.count;
+  });
   let tagHtml = '';
   tagEntries.forEach(tg => {
     tagHtml += `<button class="preset-tag filter-tag-btn" data-tag="${escapeHtml(tg.name.toLowerCase())}">${formatTag(tg.name)} <span style="opacity:0.6;font-size:0.8em">(${tg.count})</span></button>`;

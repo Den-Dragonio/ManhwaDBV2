@@ -488,7 +488,7 @@ input[type="range"].star-slider::-webkit-slider-thumb {
 
 /* ======== NEWS FEED & POPULAR (SCROLLABLE) ======== */
 .scrollable-feed {
-  max-height: 595px;
+  max-height: 735px;
   overflow-y: auto;
   padding-right: 8px;
   margin-right: -8px;
