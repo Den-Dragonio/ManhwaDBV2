@@ -39,15 +39,21 @@ export async function renderHome() {
              <div>
               <div class="section-title">🌐 Топ сайтів для читання</div>
               <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px">
-                ${topSites.map((site, i) => `
-                  <a class="top-site-item" href="${escapeHtml(site.url)}" target="_blank" rel="noopener">
+                ${topSites.map((site, i) => {
+    const isHentaiTyan = site.name.toLowerCase().includes('hentaichan') ||
+      site.name.toLowerCase().includes('hentaitan') ||
+      site.name.toLowerCase().includes('хентайтян') ||
+      site.name.toLowerCase().includes('хентай тян');
+    return `
+                  <a class="top-site-item ${isHentaiTyan ? 'hentai-chan-bg' : ''}" href="${escapeHtml(site.url)}" target="_blank" rel="noopener">
                     <span class="top-site-rank">${i + 1}</span>
                     <div>
                       <div style="font-weight:600">${escapeHtml(site.name)}</div>
                       <div style="font-size:0.75rem;color:var(--text-muted)">${escapeHtml(site.desc)}</div>
                     </div>
                     <span style="margin-left:auto;color:var(--text-muted);font-size:12px">↗</span>
-                  </a>`).join('')}
+                  </a>`;
+  }).join('')}
               </div>
 
               <div class="section-title">🎬 Топ сайтів для перегляду</div>
@@ -68,8 +74,8 @@ export async function renderHome() {
               <div class="section-title">🔥 Топ популярних</div>
               <div class="scrollable-feed">
                 ${topReviews.length === 0
-                  ? `<div class="empty-state"><div class="empty-icon">📖</div><h3>Ще немає рецензій</h3></div>`
-                  : topReviews.map((r, i) => `
+      ? `<div class="empty-state"><div class="empty-icon">📖</div><h3>Ще немає рецензій</h3></div>`
+      : topReviews.map((r, i) => `
                       <div class="review-card" style="margin-bottom:10px;cursor:pointer" data-title-id="${r.titleId}">
                         <div class="review-cover">
                           ${r.coverBase64 ? `<img src="${r.coverBase64}" alt="">` : '<div class="review-cover-placeholder">📖</div>'}
@@ -95,8 +101,8 @@ export async function renderHome() {
           <div class="scrollable-feed">
             <div class="news-feed">
               ${newsItems.length === 0
-                ? `<div class="empty-state"><div class="empty-icon">📭</div><h3>Тут поки тихо</h3><p>Реєструйтесь та діліться рецензіями!</p></div>`
-                : newsItems.map(renderNewsItem).join('')}
+      ? `<div class="empty-state"><div class="empty-icon">📭</div><h3>Тут поки тихо</h3><p>Реєструйтесь та діліться рецензіями!</p></div>`
+      : newsItems.map(renderNewsItem).join('')}
             </div>
           </div>
         </div>
@@ -129,7 +135,7 @@ export async function renderHome() {
     allReviews.forEach(r => {
       const titleMatch = (r.title || '').toLowerCase().includes(q);
       const aliasMatch = (r.search_names || []).some(alias => alias.toLowerCase().includes(q));
-      
+
       if (titleMatch || aliasMatch) {
         const tid = r.titleId || `manual_${(r.title || '').toLowerCase().replace(/\s+/g, '_')}`;
         if (!groups[tid]) groups[tid] = { ...r, titleId: tid, totalRating: 0, count: 0 };
@@ -178,13 +184,13 @@ function renderNewsItem(item) {
   if (item.type === 'joined') { icon = '🎉'; text = `${username} приєднався до ManhwaDB`; }
   else if (item.type === 'review') { icon = '📝'; text = `${username} залишив рецензію на <strong>${escapeHtml(item.extra || 'манхву')}</strong>`; }
   else if (item.type === 'friend') { icon = '🤝'; text = `${username} та <strong>${escapeHtml(item.friendName || 'Хтось')}</strong> тепер друзі!`; }
-  else if (item.type === 'new_comment') { 
-    icon = '💬'; 
-    text = `<strong>${escapeHtml(item.commenterName || 'Хтось')}</strong> прокоментував рецензію на <strong>${escapeHtml(item.reviewTitle || 'манхву')}</strong>`; 
+  else if (item.type === 'new_comment') {
+    icon = '💬';
+    text = `<strong>${escapeHtml(item.commenterName || 'Хтось')}</strong> прокоментував рецензію на <strong>${escapeHtml(item.reviewTitle || 'манхву')}</strong>`;
   }
-  else if (item.type === 'comment_reply') { 
-    icon = '↪️'; 
-    text = `<strong>${escapeHtml(item.replierName || 'Хтось')}</strong> відповів на ваш коментар до <strong>${escapeHtml(item.reviewTitle || 'манхви')}</strong>`; 
+  else if (item.type === 'comment_reply') {
+    icon = '↪️';
+    text = `<strong>${escapeHtml(item.replierName || 'Хтось')}</strong> відповів на ваш коментар до <strong>${escapeHtml(item.reviewTitle || 'манхви')}</strong>`;
   }
   else { icon = '📢'; text = `${username} щось зробив`; }
   return `<div class="news-item"><span class="news-icon">${icon}</span><div><div class="news-text">${text}</div><div class="news-ts">${timeAgo(item.createdAt)}</div></div></div>`;
