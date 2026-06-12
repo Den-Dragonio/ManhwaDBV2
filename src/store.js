@@ -354,26 +354,28 @@ const DEFAULT_TOP_SITES = [
   { name: 'Desu', url: 'https://desu.uno/', desc: '18+' },
   { name: 'HentaiChan', url: 'https://hentaichan.live/', desc: '18+' },
   { name: 'imhentai', url: 'https://imhentai.xxx/', desc: '18+' },
-  { name: 'Remanga', url: 'https://remanga.org/', desc: '18+' }
+  { name: 'Remanga', url: 'https://remanga.org/', desc: '18+' },
+  { name: 'Hitomi.la', url: 'https://hitomi.la/', desc: '18+' }
 ];
 
 export const TopSites = {
   all: () => {
-    try { const s = JSON.parse(localStorage.getItem('mdb_top_sites_v2')); return s?.length ? s : DEFAULT_TOP_SITES; } catch { return DEFAULT_TOP_SITES; }
+    try { const s = JSON.parse(localStorage.getItem('mdb_top_sites_v3')); return s?.length ? s : DEFAULT_TOP_SITES; } catch { return DEFAULT_TOP_SITES; }
   },
-  save: (sites) => localStorage.setItem('mdb_top_sites_v2', JSON.stringify(sites)),
+  save: (sites) => localStorage.setItem('mdb_top_sites_v3', JSON.stringify(sites)),
 };
 
 const DEFAULT_TOP_VIDEO_SITES = [
   { name: 'HentaiHaven', url: 'https://hentaihaven.xxx/', desc: 'Anime 18+' },
-  { name: 'HAnime', url: 'https://hanime.tv/', desc: 'Anime 18+' }
+  { name: 'HAnime', url: 'https://hanime.tv/', desc: 'Anime 18+' },
+  { name: 'HentaiAstra', url: 'https://hentaiastra.com/', desc: 'Anime 18+' }
 ];
 
 export const TopVideoSites = {
   all: () => {
-    try { const s = JSON.parse(localStorage.getItem('mdb_top_video_sites_v1')); return s?.length ? s : DEFAULT_TOP_VIDEO_SITES; } catch { return DEFAULT_TOP_VIDEO_SITES; }
+    try { const s = JSON.parse(localStorage.getItem('mdb_top_video_sites_v2')); return s?.length ? s : DEFAULT_TOP_VIDEO_SITES; } catch { return DEFAULT_TOP_VIDEO_SITES; }
   },
-  save: (sites) => localStorage.setItem('mdb_top_video_sites_v1', JSON.stringify(sites)),
+  save: (sites) => localStorage.setItem('mdb_top_video_sites_v2', JSON.stringify(sites)),
 };
 
 // ---- PLAYLISTS ----
