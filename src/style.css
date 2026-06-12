@@ -607,6 +607,8 @@ input[type="range"].star-slider::-webkit-slider-thumb {
   border-radius: var(--radius-sm); background: var(--bg-surface); border: 1px solid var(--border);
   text-decoration: none; color: var(--text-primary); font-size: 0.875rem; font-weight: 500;
   transition: all 0.2s;
+  overflow: hidden;
+  background-clip: padding-box;
 }
 .top-site-item:hover { background: var(--bg-hover); border-color: var(--text-muted); }
 .top-site-item.hentai-chan-bg {

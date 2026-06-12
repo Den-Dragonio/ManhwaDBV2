@@ -251,51 +251,91 @@ export function initTheme() {
   applyTheme(saved);
 }
 
-export async function fetchViaProxy(url) {
+export async function fetchViaProxy(url, signal = null) {
   const proxies = [
-    target => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(target)}`,
+    target => `https://thingproxy.freeboard.io/fetch/${target}`,
+    target => `https://api.allorigins.win/get?url=${encodeURIComponent(target)}`,
+    target => `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
     target => `https://corsproxy.io/?${encodeURIComponent(target)}`,
-    target => `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`
+    target => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(target)}`
   ];
 
   let lastError;
   for (const getProxyUrl of proxies) {
+    if (signal?.aborted) throw new Error("Cancelled");
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout per proxy
+
     try {
       const proxyUrl = getProxyUrl(url);
-      const res = await fetch(proxyUrl);
+      const onAbort = () => controller.abort();
+      if (signal) signal.addEventListener('abort', onAbort);
+
+      const res = await fetch(proxyUrl, { signal: controller.signal });
+      if (signal) signal.removeEventListener('abort', onAbort);
+      clearTimeout(timeoutId);
+
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      // Handle allorigins.win JSON wrapper response
+      if (proxyUrl.includes('allorigins.win/get')) {
+        const json = await res.json();
+        const contents = json.contents;
+        if (contents === null || contents === undefined) {
+          throw new Error("Allorigins wrapper returned empty contents");
+        }
+        if (contents.startsWith('data:')) {
+          const fetchRes = await fetch(contents);
+          return fetchRes;
+        } else {
+          return new Response(contents, {
+            status: 200,
+            headers: { 'Content-Type': res.headers.get('Content-Type') }
+          });
+        }
+      }
+
       return res;
     } catch (e) {
+      clearTimeout(timeoutId);
       lastError = e;
+      if (signal?.aborted || e.name === 'AbortError') {
+        throw new Error("Cancelled");
+      }
     }
   }
   throw lastError || new Error("All proxies failed");
 }
 
-export async function urlToBase64ViaProxy(url) {
+export async function urlToBase64ViaProxy(url, signal = null) {
   try {
-    const res = await fetchViaProxy(url);
+    const res = await fetchViaProxy(url, signal);
     const blob = await res.blob();
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result);
       reader.onerror = reject;
+      if (signal) {
+        signal.addEventListener('abort', () => reject(new Error("Cancelled")));
+      }
       reader.readAsDataURL(blob);
     });
   } catch (e) {
+    if (e.message === "Cancelled") throw e;
     console.warn("Failed to convert image to base64 via proxy:", e);
     return "";
   }
 }
 
-export async function fetchMetadataFromUrl(url) {
+export async function fetchMetadataFromUrl(url, signal = null) {
   const hitomiMatch = url.match(/hitomi\.la\/(?:[^\/]+\/)?(?:.*-)?(\d+)\.html/i) || url.match(/hitomi\.la\/reader\/(\d+)\.html/i);
   const hchanMatch = url.match(/h(?:entai)?-chan\.[^\/]+\/(?:manga|online)\/(\d+)-([^\.]+)\.html/i);
 
   if (hitomiMatch) {
     const galleryId = hitomiMatch[1];
-    const jsUrl = `https://ltn.hitomi.la/galleries/${galleryId}.js`;
-    const res = await fetchViaProxy(jsUrl);
+    const jsUrl = `https://ltn.gold-usergeneratedcontent.net/galleries/${galleryId}.js`;
+    const res = await fetchViaProxy(jsUrl, signal);
     const text = await res.text();
     const startIdx = text.indexOf('{');
     const endIdx = text.lastIndexOf('}');
@@ -333,7 +373,7 @@ export async function fetchMetadataFromUrl(url) {
     });
 
     const coverUrl = `https://tn.hitomi.la/bigcovers/${galleryId}.jpg`;
-    const coverBase64 = await urlToBase64ViaProxy(coverUrl);
+    const coverBase64 = await urlToBase64ViaProxy(coverUrl, signal);
 
     return {
       title,
@@ -349,7 +389,7 @@ export async function fetchMetadataFromUrl(url) {
   if (hchanMatch) {
     const galleryId = hchanMatch[1];
     const targetUrl = url.replace('/online/', '/manga/');
-    const res = await fetchViaProxy(targetUrl);
+    const res = await fetchViaProxy(targetUrl, signal);
     const html = await res.text();
 
     const titleMatch = html.match(/class=["']title_top_a["'][^>]*>(.*?)<\/a>/i) || html.match(/<h1[^>]*>(.*?)<\/h1>/i);
@@ -360,7 +400,7 @@ export async function fetchMetadataFromUrl(url) {
     if (coverUrl && coverUrl.startsWith('/')) {
       coverUrl = 'https://hentai-chan.pro' + coverUrl;
     }
-    const coverBase64 = coverUrl ? await urlToBase64ViaProxy(coverUrl) : '';
+    const coverBase64 = coverUrl ? await urlToBase64ViaProxy(coverUrl, signal) : '';
 
     const pagesMatch = html.match(/страниц:\s*<b>(\d+)<\/b>/i) || html.match(/<b>(\d+)<\/b>\s*страниц/i);
     const pages = pagesMatch ? parseInt(pagesMatch[1], 10) : 0;

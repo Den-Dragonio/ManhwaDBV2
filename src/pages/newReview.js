@@ -236,25 +236,59 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
   let userReviews = [];
   try { userReviews = await Reviews.byUser(user.id); } catch (e) { console.warn("Could not fetch user reviews", e); }
 
-  // Search Integration (Firestore + AniList + MangaDex + H-Chan)
   const titleInput = document.getElementById('review-title');
   const resultsBox = document.getElementById('autocomplete-results');
   let searchTimeout = null;
 
-  titleInput.addEventListener('input', () => {
-    const q = titleInput.value.trim();
-    if (q.length < 2) { resultsBox.style.display = 'none'; return; }
-
+  // Scraper autofill helper
+  async function checkAndHandleUrl(q) {
     if (q.startsWith('http://') || q.startsWith('https://')) {
       resultsBox.style.display = 'none';
-      if (titleInput.dataset.loading === 'true') return;
+      if (titleInput.dataset.loading === 'true') return true;
       titleInput.dataset.loading = 'true';
-      showToast('Завантаження метаданих за посиланням...', 'info');
+
+      const abortController = new AbortController();
+
+      const overlay = document.createElement('div');
+      overlay.id = 'import-loading-overlay';
+      overlay.style.position = 'fixed';
+      overlay.style.top = '0';
+      overlay.style.left = '0';
+      overlay.style.width = '100vw';
+      overlay.style.height = '100vh';
+      overlay.style.background = 'rgba(0,0,0,0.7)';
+      overlay.style.backdropFilter = 'blur(4px)';
+      overlay.style.display = 'flex';
+      overlay.style.alignItems = 'center';
+      overlay.style.justifyContent = 'center';
+      overlay.style.zIndex = '9999';
+      overlay.innerHTML = `
+        <div class="import-loading-content" style="text-align:center;background:var(--bg-card);padding:24px 36px;border-radius:var(--radius-md);box-shadow:var(--shadow-float);border:1px solid var(--border);display:flex;flex-direction:column;align-items:center;gap:16px;max-width:320px">
+          <div class="loader-spinner"></div>
+          <div style="font-weight:700;font-size:1.1rem;color:var(--text-primary)">🔍 Отримання метаданих...</div>
+          <div style="font-size:0.8rem;color:var(--text-muted);line-height:1.4">Звертаємось до джерел через проксі-сервери. Це може зайняти до 10 секунд.</div>
+          <button class="btn btn-secondary btn-xs" id="cancel-import-btn" style="margin-top:8px">✕ Скасувати</button>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      const removeOverlay = () => {
+        const el = document.getElementById('import-loading-overlay');
+        if (el) el.remove();
+      };
+
+      document.getElementById('cancel-import-btn').addEventListener('click', () => {
+        abortController.abort();
+        removeOverlay();
+        showToast('Завантаження скасовано ✕', 'info');
+      });
+
       const originalPlaceholder = titleInput.placeholder;
       titleInput.placeholder = 'Завантаження даних...';
       titleInput.disabled = true;
 
-      fetchMetadataFromUrl(q).then(meta => {
+      fetchMetadataFromUrl(q, abortController.signal).then(meta => {
+        removeOverlay();
         titleInput.value = meta.title;
         selectedTitleId = meta.titleId;
         if (meta.chapters) {
@@ -278,6 +312,10 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
         }
         showToast('Дані успішно імпортовано! ✅', 'success');
       }).catch(err => {
+        removeOverlay();
+        if (err.message === "Cancelled" || abortController.signal.aborted) {
+          return;
+        }
         console.error(err);
         showToast('Не вдалося завантажити дані. Введіть назву вручну ❌', 'warning');
       }).finally(() => {
@@ -286,6 +324,16 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
         titleInput.dataset.loading = 'false';
         titleInput.focus();
       });
+      return true;
+    }
+    return false;
+  }
+
+  titleInput.addEventListener('input', () => {
+    const q = titleInput.value.trim();
+    if (q.length < 2) { resultsBox.style.display = 'none'; return; }
+    if (q.startsWith('http://') || q.startsWith('https://')) {
+      checkAndHandleUrl(q);
       return;
     }
 
@@ -343,7 +391,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
              
              finalHtmlItems.push(`
                <div class="ac-item" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);background:var(--bg-card);border-left:4px solid var(--accent)" 
-                    data-title="${escapeHtml(ur.title)}" data-cover="${cover}" data-chapters="${ur.chapters || 0}" data-tid="${ur.titleId}" data-editid="${ur.id}" data-search-names="${escapeHtml(JSON.stringify(ur.search_names || []))}" data-type="${ur.type || 'manhwa'}">
+                    data-title="${escapeHtml(ur.title)}" data-cover="${cover}" data-chapters="${ur.chapters || 0}" data-tid="${ur.titleId || ''}" data-editid="${ur.id}" data-search-names="${escapeHtml(JSON.stringify(ur.search_names || []))}" data-type="${ur.type || 'manhwa'}">
                  ${cover ? `<img src="${cover}" style="width:32px;height:45px;object-fit:cover;border-radius:4px">` : `<div style="width:32px;height:45px;background:var(--bg-hover);border-radius:4px"></div>`}
                  <div style="flex:1">
                    <div style="font-weight:600;font-size:0.9rem;color:var(--accent)">${escapeHtml(ur.title)}</div>
@@ -353,8 +401,19 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
            }
         });
 
-        // 1. Process Database Results (Highest Priority)
+        // Split Firestore metadata into standard DB matches and Hitomi.la matches
+        const dbMetadataRes = [];
+        const hitomiMetadataRes = [];
         (firestoreRes || []).forEach(m => {
+          if (m.source === 'hitomi' || (m.id && m.id.startsWith('hitomi_'))) {
+            hitomiMetadataRes.push(m);
+          } else {
+            dbMetadataRes.push(m);
+          }
+        });
+
+        // 1. Process Database Results (Exclude Hitomi from this section)
+        dbMetadataRes.forEach(m => {
           const title = m.title || m.anilist?.title || m.toongod?.title || 'Unknown';
           const norm = normalize(title);
           if (seenNames.has(norm)) return;
@@ -398,6 +457,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
         });
 
         // 3. Fallback to MangaDex (WITH NSFW enabled)
+        let mdexMatches = [];
         if (aniRes.errors || finalHtmlItems.length < 5) {
            try {
              const ratings = ['safe', 'suggestive', 'erotica', 'pornographic'].map(r => `contentRating[]=${r}`).join('&');
@@ -407,40 +467,63 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
              const mdexRes = await fetch(proxyUrl).then(r => r.json());
              
              (mdexRes.data || []).forEach(m => {
-               const titles = m.attributes.title;
-               const t = titles.en || Object.values(titles)[0];
-               const norm = normalize(t);
-               if (seenNames.has(norm)) return;
-               seenNames.add(norm);
+                const titles = m.attributes.title;
+                const t = titles.en || Object.values(titles)[0];
+                const norm = normalize(t);
+                if (seenNames.has(norm)) return;
+                seenNames.add(norm);
 
-               const coverRel = m.relationships.find(r => r.type === 'cover_art');
-               const coverId = coverRel?.attributes?.fileName;
-               const coverUrl = coverId ? `https://uploads.mangadex.org/covers/${m.id}/${coverId}.256.jpg` : '';
-               const tid = m.attributes.links?.al ? `ani_${m.attributes.links.al}` : `mdex_${m.id}`;
-               const mdexId = m.id;
-               const isAdult = m.attributes.contentRating === 'pornographic' || m.attributes.contentRating === 'erotica';
-               const chapters = m.attributes.lastChapter || 0;
-               
-               const aliases = listToLowUnique([
-                 ...Object.values(m.attributes.title || {}),
-                 ...(m.attributes.altTitles || []).flatMap(obj => Object.values(obj))
-               ]);
-               const itemType = m.attributes.originalLanguage === 'ko' ? 'manhwa' : 'manga';
+                const coverRel = m.relationships.find(r => r.type === 'cover_art');
+                const coverId = coverRel?.attributes?.fileName;
+                const coverUrl = coverId ? `https://uploads.mangadex.org/covers/${m.id}/${coverId}.256.jpg` : '';
+                const tid = m.attributes.links?.al ? `ani_${m.attributes.links.al}` : `mdex_${m.id}`;
+                const mdexId = m.id;
+                const isAdult = m.attributes.contentRating === 'pornographic' || m.attributes.contentRating === 'erotica';
+                const chapters = m.attributes.lastChapter || 0;
+                
+                const aliases = listToLowUnique([
+                  ...Object.values(m.attributes.title || {}),
+                  ...(m.attributes.altTitles || []).flatMap(obj => Object.values(obj))
+                ]);
+                const itemType = m.attributes.originalLanguage === 'ko' ? 'manhwa' : 'manga';
 
-               finalHtmlItems.push(`
-                 <div class="ac-item" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);transition:0.1s" 
-                      data-title="${escapeHtml(t)}" data-cover="${coverUrl}" data-chapters="${chapters}" data-tid="${tid}" data-mdex-id="${mdexId}" data-search-names="${escapeHtml(JSON.stringify(aliases))}" data-type="${itemType}">
-                   ${coverUrl ? `<img src="${coverUrl}" style="width:32px;height:45px;object-fit:cover;border-radius:4px">` : `<div style="width:32px;height:45px;background:var(--bg-hover);border-radius:4px"></div>`}
-                   <div style="flex:1">
-                     <div style="font-weight:500;font-size:0.9rem">${escapeHtml(t)} ${isAdult ? '🔞' : ''}</div>
-                     <div style="font-size:0.7rem;color:var(--accent3)">MangaDex ${isAdult ? '(18+) ' : ''} ${chapters ? `• ${chapters} глав` : ''}</div>
-                   </div>
-                 </div>`);
+                mdexMatches.push(`
+                  <div class="ac-item" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);transition:0.1s" 
+                       data-title="${escapeHtml(t)}" data-cover="${coverUrl}" data-chapters="${chapters}" data-tid="${tid}" data-mdex-id="${mdexId}" data-search-names="${escapeHtml(JSON.stringify(aliases))}" data-type="${itemType}">
+                    ${coverUrl ? `<img src="${coverUrl}" style="width:32px;height:45px;object-fit:cover;border-radius:4px">` : `<div style="width:32px;height:45px;background:var(--bg-hover);border-radius:4px"></div>`}
+                    <div style="flex:1">
+                      <div style="font-weight:500;font-size:0.9rem">${escapeHtml(t)} ${isAdult ? '🔞' : ''}</div>
+                      <div style="font-size:0.7rem;color:var(--accent3)">MangaDex ${isAdult ? '(18+) ' : ''} ${chapters ? `• ${chapters} глав` : ''}</div>
+                    </div>
+                  </div>`);
              });
            } catch (e) { /* ignore */ }
         }
+        finalHtmlItems.push(...mdexMatches);
 
-        // 4. H-Chan
+        // 4. Process Hitomi.la Results (Priority 3rd after AniList and MangaDex APIs)
+        hitomiMetadataRes.forEach(m => {
+          const title = m.title || 'Unknown';
+          const norm = normalize(title);
+          if (seenNames.has(norm)) return;
+          seenNames.add(norm);
+
+          const cover = m.thumbnail_url || m.coverBase64 || '';
+          const chapters = m.chapters || 0;
+          const tid = m.id;
+
+          finalHtmlItems.push(`
+            <div class="ac-item hitomi-match" style="display:flex;align-items:center;gap:12px;padding:8px;cursor:pointer;border-bottom:1px solid var(--border);background:rgba(180,105,255,0.05)" 
+                 data-title="${escapeHtml(title)}" data-cover="${cover}" data-chapters="${chapters}" data-tid="${tid}" data-search-names="${escapeHtml(JSON.stringify(m.search_names || []))}" data-type="manga">
+              ${cover ? `<img src="${cover}" style="width:32px;height:45px;object-fit:cover;border-radius:4px">` : `<div style="width:32px;height:45px;background:var(--bg-hover);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#b469ff">💜</div>`}
+              <div style="flex:1">
+                <div style="font-weight:600;font-size:0.9rem;color:#b469ff">${escapeHtml(title)}</div>
+                <div style="font-size:0.7rem;color:var(--text-muted)">Hitomi.la • ${chapters} стор.</div>
+              </div>
+            </div>`);
+        });
+
+        // 5. H-Chan Results
         (hchanRes || []).forEach(m => {
           const norm = normalize(m.title);
           if (seenNames.has(norm)) return;
@@ -473,6 +556,7 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
           item.addEventListener('mouseenter', () => item.style.background = 'var(--bg-hover)');
           item.addEventListener('mouseleave', () => {
              if (item.classList.contains('db-match')) item.style.background = 'rgba(var(--accent-rgb), 0.05)';
+             else if (item.classList.contains('hitomi-match')) item.style.background = 'rgba(180,105,255,0.05)';
              else if (item.dataset.editid) item.style.background = 'var(--bg-card)';
              else item.style.background = '';
           });
@@ -491,10 +575,23 @@ export async function renderNewReview(editId = null, preSelectedTitleId = null) 
             selectedMdexId = item.dataset.mdexId || null;
             selectedSearchNames = item.dataset.searchNames ? JSON.parse(item.dataset.searchNames) : [];
             document.getElementById('review-chapters').value = item.dataset.chapters;
+            
             if (item.dataset.cover) {
-              currentCover = item.dataset.cover;
-              refreshCoverUI();
+              if (item.dataset.cover.startsWith('http')) {
+                currentCover = item.dataset.cover;
+                refreshCoverUI();
+                urlToBase64ViaProxy(item.dataset.cover).then(b64 => {
+                  if (b64 && currentCover === item.dataset.cover) {
+                    currentCover = b64;
+                    refreshCoverUI();
+                  }
+                }).catch(err => console.warn("Failed to convert cover:", err));
+              } else {
+                currentCover = item.dataset.cover;
+                refreshCoverUI();
+              }
             }
+
             if (item.dataset.type) {
               currentType = item.dataset.type;
               const radios = document.getElementsByName('manga-type');

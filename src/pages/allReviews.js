@@ -80,7 +80,12 @@ export async function renderAllReviews({ userId }) {
 
   // Populate dynamic tags
   const tagCounts = {};
+  let manhwaCount = 0;
+  let mangaCount = 0;
   reviews.forEach(r => {
+    if (r.type === 'manhwa') manhwaCount++;
+    if (r.type === 'manga') mangaCount++;
+
     (r.tags || []).forEach(t => {
       const q = t.trim().toLowerCase();
       if (q) {
@@ -89,6 +94,13 @@ export async function renderAllReviews({ userId }) {
       }
     });
   });
+
+  if (manhwaCount > 0) {
+    tagCounts['манхва'] = { name: 'манхва', count: manhwaCount };
+  }
+  if (mangaCount > 0) {
+    tagCounts['манга'] = { name: 'манга', count: mangaCount };
+  }
 
   const tagEntries = Object.values(tagCounts).sort((a, b) => {
     const nameA = a.name.toLowerCase();
@@ -176,7 +188,15 @@ export async function renderAllReviews({ userId }) {
       list = list.filter(r => {
          const itemTags = (r.tags || []).map(t => t.trim().toLowerCase());
          // AND logic: Review must have ALL selected tags
-         return Array.from(activeTags).every(activeTag => itemTags.includes(activeTag));
+         return Array.from(activeTags).every(activeTag => {
+           if (activeTag === 'манхва' || activeTag === 'manhwa') {
+             return r.type === 'manhwa' || itemTags.includes('манхва') || itemTags.includes('manhwa');
+           }
+           if (activeTag === 'манга' || activeTag === 'manga') {
+             return r.type === 'manga' || itemTags.includes('манга') || itemTags.includes('manga');
+           }
+           return itemTags.includes(activeTag);
+         });
       });
     }
 
