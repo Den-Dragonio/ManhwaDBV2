@@ -259,8 +259,8 @@ function showPlaylistViewModal(playlist, reviews, userId, isOwn) {
           <span class="modal-title">📑 ${escapeHtml(playlist.name)}</span>
           <button class="modal-close" id="pv-close">✕</button>
         </div>
-        <div class="modal-body">
-          <div class="modal-body-scroll" style="max-height:450px;overflow-y:auto;padding-right:8px">
+        <div class="modal-body" style="display:flex;flex-direction:column;max-height:65vh;overflow:hidden">
+          <div class="modal-body-scroll" style="flex:1;min-height:0;overflow-y:auto;padding-right:8px">
             ${items.length === 0 ? '<div class="empty-state"><h3>Плейліст порожній</h3></div>' :
       items.map(r => `
                 <div class="review-card" style="margin-bottom:10px;cursor:pointer" data-pv-review="${r.id}">

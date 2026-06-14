@@ -381,9 +381,15 @@ body::before {
 }
 .modal-close:hover { background: var(--bg-hover); color: var(--text-primary); }
 .modal-body {
-  padding: 0 28px 28px;
+  padding: 0 28px 0;
   overflow-y: auto;
   max-height: 65vh;
+}
+.modal-body::after {
+  content: "";
+  display: block;
+  height: 28px;
+  flex-shrink: 0;
 }
 /* Beautiful expanding scrollbar */
 .modal-body::-webkit-scrollbar { width: 6px; }
