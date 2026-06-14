@@ -428,6 +428,10 @@ export const Playlists = {
   delete: async (id) => {
     await deleteDoc(doc(db, 'playlists', id));
   },
+  update: async (id, data) => {
+    await updateDoc(doc(db, 'playlists', id), data);
+    return { id, ...data };
+  },
 };
 
 // ---- MANGA METADATA (from scraper) ----

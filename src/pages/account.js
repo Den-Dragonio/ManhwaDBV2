@@ -198,10 +198,11 @@ function showPlaylistCreateModal(userId, reviews) {
             </div>
             <div class="form-group" style="margin-bottom:16px">
               <label class="form-label">Виберіть манхви</label>
-              <div style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;padding:8px" class="modal-body-scroll">
+              ${reviews.length > 0 ? `<input class="input" id="pc-search" placeholder="🔍 Пошук манхви за назвою..." style="margin-bottom:12px">` : ''}
+              <div style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;padding:8px" class="modal-body-scroll" id="pc-reviews-list">
                 ${reviews.length === 0 ? '<div style="color:var(--text-muted)">Немає рецензій для вибору</div>' :
       reviews.map(r => `
-                    <label style="display:flex;align-items:center;gap:12px;cursor:pointer;padding:8px;background:var(--bg-surface);border-radius:var(--radius-sm)">
+                    <label class="pc-review-item" data-title="${escapeHtml(r.title.toLowerCase())}" style="display:flex;align-items:center;gap:12px;cursor:pointer;padding:8px;background:var(--bg-surface);border-radius:var(--radius-sm)">
                       <input type="checkbox" value="${r.id}" class="pc-review-cb" style="width:18px;height:18px;cursor:pointer">
                       ${r.coverBase64 ? `<img src="${r.coverBase64}" style="width:36px;height:48px;object-fit:cover;border-radius:4px">` : `<div style="width:36px;height:48px;background:var(--bg-hover);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px">📖</div>`}
                       <div style="flex:1;font-weight:500;font-size:0.9rem">${escapeHtml(r.title)}</div>
@@ -222,6 +223,14 @@ function showPlaylistCreateModal(userId, reviews) {
   const close = () => { holder.innerHTML = ''; };
   document.getElementById('pc-close').addEventListener('click', close);
   document.getElementById('pc-close2').addEventListener('click', close);
+
+  document.getElementById('pc-search')?.addEventListener('input', e => {
+    const q = e.target.value.toLowerCase().trim();
+    document.querySelectorAll('.pc-review-item').forEach(el => {
+      const title = el.dataset.title || '';
+      el.style.display = !q || title.includes(q) ? 'flex' : 'none';
+    });
+  });
 
   const saveBtn = document.getElementById('pc-save-btn');
   saveBtn.addEventListener('click', async () => {
@@ -266,7 +275,8 @@ function showPlaylistViewModal(playlist, reviews, userId, isOwn) {
               `).join('')}
           </div>
           ${isOwn ? `
-            <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
+            <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;display:flex;gap:10px;justify-content:space-between">
+              <button class="btn btn-secondary btn-sm" id="pv-edit-btn">✏️ Редагувати</button>
               <button class="btn btn-danger btn-sm" id="pv-del-btn">🗑 Видалити плейліст</button>
             </div>
           ` : ''}
@@ -282,6 +292,10 @@ function showPlaylistViewModal(playlist, reviews, userId, isOwn) {
   });
 
   if (isOwn) {
+    document.getElementById('pv-edit-btn').addEventListener('click', () => {
+      showPlaylistEditModal(playlist, reviews, userId);
+    });
+
     document.getElementById('pv-del-btn').addEventListener('click', async () => {
       if (!window.confirm("Дійсно видалити цей плейліст?")) return;
       document.getElementById('pv-del-btn').disabled = true;
@@ -291,6 +305,76 @@ function showPlaylistViewModal(playlist, reviews, userId, isOwn) {
       await renderAccountPage(userId, isOwn);
     });
   }
+}
+
+function showPlaylistEditModal(playlist, reviews, userId) {
+  const holder = document.getElementById('playlist-modal-placeholder');
+  holder.innerHTML = `
+    <div class="modal-backdrop" id="playlist-edit-modal">
+      <div class="modal-box modal-box-lg">
+        <div class="modal-header">
+          <span class="modal-title">✏️ Редагувати плейліст</span>
+          <button class="modal-close" id="pe-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-body-scroll">
+            <div class="form-group" style="margin-bottom:16px">
+              <label class="form-label">Назва плейлісту <span style="color:var(--accent)">*</span></label>
+              <input class="input" type="text" id="pe-name" value="${escapeHtml(playlist.name)}" placeholder="Мої улюблені...">
+            </div>
+            <div class="form-group" style="margin-bottom:16px">
+              <label class="form-label">Виберіть манхви</label>
+              ${reviews.length > 0 ? `<input class="input" id="pe-search" placeholder="🔍 Пошук манхви за назвою..." style="margin-bottom:12px">` : ''}
+              <div style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;padding:8px" class="modal-body-scroll" id="pe-reviews-list">
+                ${reviews.length === 0 ? '<div style="color:var(--text-muted)">Немає рецензій для вибору</div>' :
+      reviews.map(r => {
+        const isChecked = playlist.reviewIds.includes(r.id);
+        return `
+                    <label class="pe-review-item" data-title="${escapeHtml(r.title.toLowerCase())}" style="display:flex;align-items:center;gap:12px;cursor:pointer;padding:8px;background:var(--bg-surface);border-radius:var(--radius-sm)">
+                      <input type="checkbox" value="${r.id}" class="pe-review-cb" ${isChecked ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer">
+                      ${r.coverBase64 ? `<img src="${r.coverBase64}" style="width:36px;height:48px;object-fit:cover;border-radius:4px">` : `<div style="width:36px;height:48px;background:var(--bg-hover);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px">📖</div>`}
+                      <div style="flex:1;font-weight:500;font-size:0.9rem">${escapeHtml(r.title)}</div>
+                    </label>
+                  `;
+      }).join('')}
+              </div>
+            </div>
+            <div id="pe-error" class="form-error" style="display:none;margin-bottom:12px"></div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+              <button class="btn btn-secondary" id="pe-close2">Скасувати</button>
+              <button class="btn btn-primary" id="pe-save-btn">Зберегти</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  const close = () => { holder.innerHTML = ''; };
+  document.getElementById('pe-close').addEventListener('click', close);
+  document.getElementById('pe-close2').addEventListener('click', close);
+
+  document.getElementById('pe-search')?.addEventListener('input', e => {
+    const q = e.target.value.toLowerCase().trim();
+    document.querySelectorAll('.pe-review-item').forEach(el => {
+      const title = el.dataset.title || '';
+      el.style.display = !q || title.includes(q) ? 'flex' : 'none';
+    });
+  });
+
+  const saveBtn = document.getElementById('pe-save-btn');
+  saveBtn.addEventListener('click', async () => {
+    const name = document.getElementById('pe-name').value.trim();
+    if (!name) {
+      const err = document.getElementById('pe-error');
+      err.textContent = "Назва обов'язкова"; err.style.display = 'block'; return;
+    }
+    const checked = Array.from(document.querySelectorAll('.pe-review-cb:checked')).map(cb => cb.value);
+    saveBtn.disabled = true; saveBtn.textContent = '...';
+    await Playlists.update(playlist.id, { name, reviewIds: checked });
+    showToast('Плейліст оновлено!', 'success');
+    close();
+    await renderAccountPage(userId, true);
+  });
 }
 
 function renderReviewCard(r) {
