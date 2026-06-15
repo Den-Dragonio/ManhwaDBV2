@@ -173,11 +173,7 @@ function computeStats(reviews, metaMap = {}) {
 
   const scatterData = reviews
     .filter(r => {
-      if (r.chapters <= 0 || r.rating <= 0) return false;
-      const tList = (r.tags || []).map(t => t.toLowerCase());
-      if (tList.includes('манга')) return false;
-      if (!tList.includes('манхва')) return false;
-      return true;
+      return (Number(r.chapters) > 0 && Number(r.rating) > 0);
     })
     .map(r => ({
       title: r.title,
