@@ -1544,8 +1544,17 @@ input[type="range"].star-slider::-webkit-slider-thumb {
   .heatmap-row-labels { display: none; } /* Hide labels on tiny screens to save more space */
 }
 
-.manhwa-thumb-wrap.faded-non-matching {
+.faded-non-matching {
   opacity: 0.25;
   filter: grayscale(80%) brightness(0.7);
   transition: opacity 0.3s ease, filter 0.3s ease;
 }
+
+mark.highlight {
+  background-color: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 4px;
+  padding: 0 2px;
+  font-weight: 600;
+}
+

@@ -307,7 +307,7 @@ function renderReviewsList(reviews, viewMode, currentSearch, activeTags, activeS
 
   if (viewMode === 'icons') {
     return reviews.map(r => {
-      const matchesSearch = !currentSearch || r.title.toLowerCase().includes(currentSearch) || (r.search_names || []).some(alias => alias.toLowerCase().includes(currentSearch));
+      const matchesSearch = !currentSearch || checkMatch(r.title, currentSearch, r.search_names);
       
       const matchesTags = Array.from(activeTags).every(activeTag => {
         const itemTags = (r.tags || []).map(t => t.trim().toLowerCase());
@@ -329,14 +329,13 @@ function renderReviewsList(reviews, viewMode, currentSearch, activeTags, activeS
         <div class="manhwa-thumb">
           ${r.coverBase64 ? `<img src="${r.coverBase64}" alt="${escapeHtml(r.title)}">` : `<div class="manhwa-thumb-placeholder">📖</div>`}
         </div>
-        <div style="font-size:0.75rem;font-weight:600;margin-top:6px;text-align:center;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;width:100%">${escapeHtml(r.title)}</div>
+        <div style="font-size:0.75rem;font-weight:600;margin-top:6px;text-align:center;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;width:100%">${highlightTitle(r.title, currentSearch)}</div>
       </div>`;
     }).join('');
   }
 
-  // List mode: filter out non-matching elements
-  const filtered = reviews.filter(r => {
-    const matchesSearch = !currentSearch || r.title.toLowerCase().includes(currentSearch) || (r.search_names || []).some(alias => alias.toLowerCase().includes(currentSearch));
+  return reviews.map(r => {
+    const matchesSearch = !currentSearch || checkMatch(r.title, currentSearch, r.search_names);
     
     const matchesTags = Array.from(activeTags).every(activeTag => {
       const itemTags = (r.tags || []).map(t => t.trim().toLowerCase());
@@ -350,21 +349,17 @@ function renderReviewsList(reviews, viewMode, currentSearch, activeTags, activeS
     });
 
     const matchesStatus = activeStatuses.size === 0 || activeStatuses.has(r.status);
-    return matchesSearch && matchesTags && matchesStatus;
-  });
 
-  if (filtered.length === 0) {
-    return `<div class="empty-state"><div class="empty-icon">📭</div><h3>Нічого не знайдено</h3></div>`;
-  }
+    const isMatching = matchesSearch && matchesTags && matchesStatus;
+    const fadeClass = isMatching ? '' : ' faded-non-matching';
 
-  return filtered.map(r => {
     const isDropped = r.status === 'dropped' || r.status === 'planned';
-    return `<div class="review-card all-reviews-card" style="cursor:pointer" data-review-id="${r.id}">
+    return `<div class="review-card all-reviews-card${fadeClass}" style="cursor:pointer" data-review-id="${r.id}">
       <div class="review-cover">
         ${r.coverBase64 ? `<img src="${r.coverBase64}" alt="${escapeHtml(r.title)}">` : '<div class="review-cover-placeholder">📖</div>'}
       </div>
       <div class="review-body">
-        <div class="review-title">${escapeHtml(r.title)}</div>
+        <div class="review-title">${highlightTitle(r.title, currentSearch)}</div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
           <div class="review-date">${r.date ? formatDate(r.date) : timeAgo(r.createdAt)}</div>
           <span class="status-badge ${statusClass[r.status] || ''}" style="font-size:0.7rem">${statusLabels[r.status] || ''}</span>
@@ -377,3 +372,28 @@ function renderReviewsList(reviews, viewMode, currentSearch, activeTags, activeS
     </div>`;
   }).join('');
 }
+
+function checkMatch(title, search, aliases = []) {
+  if (!search) return true;
+  const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(?<!\\p{L})${escapedSearch}`, 'iu');
+  if (regex.test(title || '')) return true;
+  return (aliases || []).some(alias => regex.test(alias || ''));
+}
+
+function highlightTitle(title, search) {
+  const safeTitle = title || '';
+  if (!search) return escapeHtml(safeTitle);
+  const escaped = escapeHtml(safeTitle);
+  const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(?<!\\p{L})(${escapedSearch})`, 'giu');
+  
+  const parts = escaped.split(/(&amp;|&lt;|&gt;|&quot;)/g);
+  return parts.map((part, index) => {
+    if (index % 2 !== 0) {
+      return part;
+    }
+    return part.replace(regex, '<mark class="highlight">$1</mark>');
+  }).join('');
+}
+
