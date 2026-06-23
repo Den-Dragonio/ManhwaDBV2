@@ -470,7 +470,7 @@ function showEditModal(user) {
     saveBtn.classList.add('btn-active-green');
   };
 
-  holder.querySelectorAll('#edit-old-password, #edit-new-password, #edit-bio').forEach(el => el.addEventListener('input', enableSave));
+  holder.querySelectorAll('#edit-old-password, #edit-new-password, #edit-bio, #edit-email').forEach(el => el.addEventListener('input', enableSave));
   holder.querySelectorAll('#edit-theme, #edit-push, #edit-lang').forEach(el => el.addEventListener('change', enableSave));
 
   saveBtn.addEventListener('click', async () => {
@@ -484,6 +484,14 @@ function showEditModal(user) {
     const errEl = document.getElementById('edit-error');
     const saveBtn = document.getElementById('save-edit-btn');
     saveBtn.disabled = true; saveBtn.textContent = 'Збереження...';
+
+    if (email && !/^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(email)) {
+      errEl.textContent = t('email_invalid_gmail');
+      errEl.style.display = 'block';
+      saveBtn.disabled = false;
+      saveBtn.textContent = '💾 Зберегти';
+      return;
+    }
 
     // Apply theme & push settings
     applyTheme(theme);

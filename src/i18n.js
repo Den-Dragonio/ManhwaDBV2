@@ -50,7 +50,8 @@ const translations = {
     lang_setting: "Interface Language",
     lang_en: "English",
     lang_uk: "Ukrainian",
-    lang_ru: "Russian"
+    lang_ru: "Russian",
+    email_invalid_gmail: "Email must end with @gmail.com"
   },
   uk: {
     // Stats
@@ -101,7 +102,8 @@ const translations = {
     lang_setting: "Мова інтерфейсу",
     lang_en: "Англійська",
     lang_uk: "Українська",
-    lang_ru: "Російська"
+    lang_ru: "Російська",
+    email_invalid_gmail: "Email має закінчуватися на @gmail.com"
   },
   ru: {
     // Stats
@@ -152,7 +154,8 @@ const translations = {
     lang_setting: "Язык интерфейса",
     lang_en: "Английский",
     lang_uk: "Украинский",
-    lang_ru: "Русский"
+    lang_ru: "Русский",
+    email_invalid_gmail: "Email должен заканчиваться на @gmail.com"
   }
 };
 

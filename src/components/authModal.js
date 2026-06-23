@@ -5,6 +5,7 @@
 import { login, register } from '../auth.js';
 import { News } from '../store.js';
 import { showToast } from '../utils.js';
+import { t } from '../i18n.js';
 
 let activeModal = null;
 
@@ -117,6 +118,14 @@ function renderTab(backdrop, tab) {
       const errEl = content.querySelector('#auth-error');
       const submitBtn = content.querySelector('#auth-submit');
       setLoading(submitBtn, true);
+
+      if (email && !/^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(email)) {
+        errEl.textContent = t('email_invalid_gmail');
+        errEl.style.display = 'block';
+        setLoading(submitBtn, false);
+        return;
+      }
+
       const result = await register(username, password, email);
       if (result.error) {
         errEl.textContent = result.error; errEl.style.display = 'block';

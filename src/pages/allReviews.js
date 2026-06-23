@@ -20,6 +20,13 @@ export async function renderAllReviews({ userId }) {
     return;
   }
 
+  let currentView = localStorage.getItem('mdb_reviews_view_mode') || 'list';
+  let currentSort = 'rating';
+  let currentDir = 'desc';
+  let currentSearch = '';
+  let activeTags = new Set();
+  let activeStatuses = new Set();
+
   container.innerHTML = `
     <div class="page-container">
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;flex-wrap:wrap">
@@ -33,14 +40,25 @@ export async function renderAllReviews({ userId }) {
 
       <!-- Sorting Bar -->
       <div class="all-reviews-controls" id="sort-controls">
-        <div style="font-size:0.85rem;color:var(--text-muted);width:100%">Сортувати:</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn btn-secondary btn-sm sort-btn active" data-sort="rating" data-dir="desc">⭐ Оцінка ⬇️</button>
-          <button class="btn btn-secondary btn-sm sort-btn" data-sort="date" data-dir="desc">📅 Дата ⬇️</button>
-          <button class="btn btn-secondary btn-sm sort-btn" data-sort="status" data-dir="desc">📌 Статус ⬇️</button>
-          <button class="btn btn-secondary btn-sm sort-btn" data-sort="chapters" data-dir="desc">📚 Глави ⬇️</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;width:100%;flex-wrap:wrap;gap:12px">
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div style="font-size:0.85rem;color:var(--text-muted)">Сортувати:</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn btn-secondary btn-sm sort-btn active" data-sort="rating" data-dir="desc">⭐ Оцінка ⬇️</button>
+              <button class="btn btn-secondary btn-sm sort-btn" data-sort="date" data-dir="desc">📅 Дата ⬇️</button>
+              <button class="btn btn-secondary btn-sm sort-btn" data-sort="status" data-dir="desc">📌 Статус ⬇️</button>
+              <button class="btn btn-secondary btn-sm sort-btn" data-sort="chapters" data-dir="desc">📚 Глави ⬇️</button>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div style="font-size:0.85rem;color:var(--text-muted)">Вигляд:</div>
+            <div style="display:flex;gap:4px;background:var(--bg-surface);padding:4px;border-radius:var(--radius-sm);border:1px solid var(--border)">
+              <button class="btn btn-sm view-btn ${currentView === 'list' ? 'active' : ''}" data-view="list" style="padding:4px 12px;border:none;cursor:pointer;font-weight:600;font-size:0.85rem;border-radius:6px;background:${currentView === 'list' ? 'var(--bg-card)' : 'transparent'};color:${currentView === 'list' ? 'var(--text-primary)' : 'var(--text-secondary)'}">📝 Список</button>
+              <button class="btn btn-sm view-btn ${currentView === 'icons' ? 'active' : ''}" data-view="icons" style="padding:4px 12px;border:none;cursor:pointer;font-weight:600;font-size:0.85rem;border-radius:6px;background:${currentView === 'icons' ? 'var(--bg-card)' : 'transparent'};color:${currentView === 'icons' ? 'var(--text-primary)' : 'var(--text-secondary)'}">🖼️ Іконки</button>
+            </div>
+          </div>
         </div>
-        <input class="input" id="all-reviews-search" placeholder="🔍 Пошук..." style="width:100%; margin-bottom: 8px;">
+        <input class="input" id="all-reviews-search" placeholder="🔍 Пошук..." style="width:100%; margin-bottom: 8px; margin-top: 8px;">
         
         <div style="font-size:0.85rem;color:var(--text-muted);width:100%;margin-top:4px">Фільтр статусів:</div>
         <div id="status-filter-wrap" style="display:flex;flex-wrap:wrap;gap:6px;width:100%;margin-bottom:8px">
@@ -56,8 +74,8 @@ export async function renderAllReviews({ userId }) {
         </div>
       </div>
 
-      <div id="all-reviews-grid" style="display:flex;flex-direction:column;gap:10px">
-        ${renderGrid(reviews)}
+      <div id="all-reviews-grid" class="${currentView === 'icons' ? 'manhwa-grid' : ''}" style="${currentView === 'icons' ? 'display:grid;grid-template-columns:repeat(auto-fill, minmax(100px, 1fr));gap:12px' : 'display:flex;flex-direction:column;gap:10px'}">
+        ${renderReviewsList(reviews, currentView, currentSearch, activeTags, activeStatuses)}
       </div>
     </div>`;
 
@@ -68,12 +86,6 @@ export async function renderAllReviews({ userId }) {
       el.addEventListener('click', () => navigate(`review/${el.dataset.reviewId}`));
     });
   };
-
-  let currentSort = 'rating';
-  let currentDir = 'desc';
-  let currentSearch = '';
-  let activeTags = new Set();
-  let activeStatuses = new Set();
   const grid = document.getElementById('all-reviews-grid');
   const tagWrap = document.getElementById('tag-filter-wrap');
   const statusWrap = document.getElementById('status-filter-wrap');
@@ -176,34 +188,6 @@ export async function renderAllReviews({ userId }) {
   const applySortAndFilter = () => {
     let list = [...reviews];
 
-    if (currentSearch) {
-      list = list.filter(r => {
-        const matchesTitle = r.title.toLowerCase().includes(currentSearch);
-        const matchesAlias = (r.search_names || []).some(alias => alias.toLowerCase().includes(currentSearch));
-        return matchesTitle || matchesAlias;
-      });
-    }
-
-    if (activeTags.size > 0) {
-      list = list.filter(r => {
-         const itemTags = (r.tags || []).map(t => t.trim().toLowerCase());
-         // AND logic: Review must have ALL selected tags
-         return Array.from(activeTags).every(activeTag => {
-           if (activeTag === 'манхва' || activeTag === 'manhwa') {
-             return r.type === 'manhwa' || itemTags.includes('манхва') || itemTags.includes('manhwa');
-           }
-           if (activeTag === 'манга' || activeTag === 'manga') {
-             return r.type === 'manga' || itemTags.includes('манга') || itemTags.includes('manga');
-           }
-           return itemTags.includes(activeTag);
-         });
-      });
-    }
-
-    if (activeStatuses.size > 0) {
-      list = list.filter(r => activeStatuses.has(r.status));
-    }
-
     list.sort((a, b) => {
       let va = getSortVal(a, currentSort);
       let vb = getSortVal(b, currentSort);
@@ -219,7 +203,21 @@ export async function renderAllReviews({ userId }) {
       return currentDir === 'desc' ? -diff : diff;
     });
 
-    grid.innerHTML = renderGrid(list);
+    if (currentView === 'icons') {
+      grid.className = 'manhwa-grid';
+      grid.style.display = 'grid';
+      grid.style.flexDirection = '';
+      grid.style.gap = '12px';
+      grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(100px, 1fr))';
+    } else {
+      grid.className = '';
+      grid.style.display = 'flex';
+      grid.style.flexDirection = 'column';
+      grid.style.gap = '10px';
+      grid.style.gridTemplateColumns = '';
+    }
+
+    grid.innerHTML = renderReviewsList(list, currentView, currentSearch, activeTags, activeStatuses);
     wireClicks();
   };
 
@@ -254,6 +252,24 @@ export async function renderAllReviews({ userId }) {
     applySortAndFilter();
   });
 
+  const viewBtns = container.querySelectorAll('.view-btn');
+  viewBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentView = btn.dataset.view;
+      localStorage.setItem('mdb_reviews_view_mode', currentView);
+      
+      viewBtns.forEach(b => {
+        const isActive = b.dataset.view === currentView;
+        b.style.background = isActive ? 'var(--bg-card)' : 'transparent';
+        b.style.color = isActive ? 'var(--text-primary)' : 'var(--text-secondary)';
+        if (isActive) b.classList.add('active');
+        else b.classList.remove('active');
+      });
+      
+      applySortAndFilter();
+    });
+  });
+
   // Initial load sort
   applySortAndFilter();
 
@@ -281,12 +297,67 @@ export async function renderAllReviews({ userId }) {
   });
 }
 
-function renderGrid(reviews) {
-  if (reviews.length === 0) return `<div class="empty-state"><div class="empty-icon">📭</div><h3>Нічого не знайдено</h3></div>`;
+function renderReviewsList(reviews, viewMode, currentSearch, activeTags, activeStatuses) {
+  if (reviews.length === 0) {
+    return `<div class="empty-state"><div class="empty-icon">📭</div><h3>Нічого не знайдено</h3></div>`;
+  }
+
   const statusLabels = { done: '✅ Прочитано', reading: '📖 Читаю', planned: '⏳ В планах', dropped: '❌ Кинув' };
   const statusClass = { done: 'status-done', reading: 'status-reading', planned: 'status-planned', dropped: 'status-dropped' };
 
-  return reviews.map(r => {
+  if (viewMode === 'icons') {
+    return reviews.map(r => {
+      const matchesSearch = !currentSearch || r.title.toLowerCase().includes(currentSearch) || (r.search_names || []).some(alias => alias.toLowerCase().includes(currentSearch));
+      
+      const matchesTags = Array.from(activeTags).every(activeTag => {
+        const itemTags = (r.tags || []).map(t => t.trim().toLowerCase());
+        if (activeTag === 'манхва' || activeTag === 'manhwa') {
+          return r.type === 'manhwa' || itemTags.includes('манхва') || itemTags.includes('manhwa');
+        }
+        if (activeTag === 'манга' || activeTag === 'manga') {
+          return r.type === 'manga' || itemTags.includes('манга') || itemTags.includes('manga');
+        }
+        return itemTags.includes(activeTag);
+      });
+
+      const matchesStatus = activeStatuses.size === 0 || activeStatuses.has(r.status);
+
+      const isMatching = matchesSearch && matchesTags && matchesStatus;
+      const fadeClass = isMatching ? '' : ' faded-non-matching';
+
+      return `<div class="manhwa-thumb-wrap${fadeClass}" style="display:flex;flex-direction:column;align-items:center;cursor:pointer" data-review-id="${r.id}" title="${escapeHtml(r.title)}">
+        <div class="manhwa-thumb">
+          ${r.coverBase64 ? `<img src="${r.coverBase64}" alt="${escapeHtml(r.title)}">` : `<div class="manhwa-thumb-placeholder">📖</div>`}
+        </div>
+        <div style="font-size:0.75rem;font-weight:600;margin-top:6px;text-align:center;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;width:100%">${escapeHtml(r.title)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // List mode: filter out non-matching elements
+  const filtered = reviews.filter(r => {
+    const matchesSearch = !currentSearch || r.title.toLowerCase().includes(currentSearch) || (r.search_names || []).some(alias => alias.toLowerCase().includes(currentSearch));
+    
+    const matchesTags = Array.from(activeTags).every(activeTag => {
+      const itemTags = (r.tags || []).map(t => t.trim().toLowerCase());
+      if (activeTag === 'манхва' || activeTag === 'manhwa') {
+        return r.type === 'manhwa' || itemTags.includes('манхва') || itemTags.includes('manhwa');
+      }
+      if (activeTag === 'манга' || activeTag === 'manga') {
+        return r.type === 'manga' || itemTags.includes('манга') || itemTags.includes('manga');
+      }
+      return itemTags.includes(activeTag);
+    });
+
+    const matchesStatus = activeStatuses.size === 0 || activeStatuses.has(r.status);
+    return matchesSearch && matchesTags && matchesStatus;
+  });
+
+  if (filtered.length === 0) {
+    return `<div class="empty-state"><div class="empty-icon">📭</div><h3>Нічого не знайдено</h3></div>`;
+  }
+
+  return filtered.map(r => {
     const isDropped = r.status === 'dropped' || r.status === 'planned';
     return `<div class="review-card all-reviews-card" style="cursor:pointer" data-review-id="${r.id}">
       <div class="review-cover">

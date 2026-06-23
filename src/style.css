@@ -1543,3 +1543,9 @@ input[type="range"].star-slider::-webkit-slider-thumb {
   .popular-lengths-list { flex-direction: column !important; }
   .heatmap-row-labels { display: none; } /* Hide labels on tiny screens to save more space */
 }
+
+.manhwa-thumb-wrap.faded-non-matching {
+  opacity: 0.25;
+  filter: grayscale(80%) brightness(0.7);
+  transition: opacity 0.3s ease, filter 0.3s ease;
+}
